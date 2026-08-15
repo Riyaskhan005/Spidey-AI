@@ -1,3 +1,19 @@
 <resources>
-    <style name="Theme.OfflineAssistant" parent="Theme.MaterialComponents.DayNight.NoActionBar" />
+    <style name="Theme.OfflineAssistant" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/spidey_red</item>
+        <item name="colorPrimaryDark">@color/spidey_black</item>
+        <item name="colorAccent">@color/spidey_blue</item>
+        <item name="android:windowBackground">@color/spidey_black</item>
+        <item name="android:statusBarColor">@color/spidey_black</item>
+        <item name="android:navigationBarColor">@color/spidey_black</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+
+    <style name="ToggleButtonSpidey" parent="Widget.MaterialComponents.Button.OutlinedButton">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textSize">13sp</item>
+        <item name="cornerRadius">20dp</item>
+        <item name="strokeColor">@color/spidey_web_grey</item>
+        <item name="android:textColor">@color/text_primary</item>
+    </style>
 </resources>

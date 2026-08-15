@@ -1,55 +1,196 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:background="@drawable/bg_main">
 
-    <!-- Status / progress indicator -->
-    <TextView
-        android:id="@+id/statusText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:text="🌐 Grok ready."
-        android:textStyle="italic"
-        android:paddingBottom="8dp" />
+    <!-- Decorative web corner, purely cosmetic -->
+    <ImageView
+        android:layout_width="160dp"
+        android:layout_height="160dp"
+        android:layout_gravity="top|end"
+        android:alpha="0.6"
+        android:src="@drawable/web_corner"
+        android:contentDescription="@null" />
 
-    <!-- Scrollable response area -->
-    <ScrollView
-        android:id="@+id/responseScrollView"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <TextView
-            android:id="@+id/responseText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:textSize="16sp" />
-    </ScrollView>
-
-    <!-- Input bar -->
     <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:paddingTop="12dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/inputBox"
-            android:layout_width="0dp"
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:background="@drawable/bg_header"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="18dp"
+            android:paddingTop="18dp"
+            android:paddingBottom="14dp">
+
+            <ImageView
+                android:layout_width="30dp"
+                android:layout_height="30dp"
+                android:src="@drawable/ic_spidey_mark"
+                android:contentDescription="@null" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="SPIDEY"
+                    android:textColor="@color/spidey_white"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="0.08" />
+
+                <TextView
+                    android:id="@+id/statusText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Ready."
+                    android:textColor="#D8DDF5"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Voice / Text mode toggle -->
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/modeToggle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                app:singleSelection="true"
+                app:selectionRequired="true">
+
+                <Button
+                    android:id="@+id/textModeButton"
+                    style="@style/ToggleButtonSpidey"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="14dp"
+                    android:text="Text"
+                    android:checked="true" />
+
+                <Button
+                    android:id="@+id/voiceModeButton"
+                    style="@style/ToggleButtonSpidey"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="14dp"
+                    android:text="Voice" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+        </LinearLayout>
+
+        <!-- Chat list -->
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/chatRecyclerView"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:hint="Ask something..."
-            android:inputType="textMultiLine"
-            android:maxLines="4" />
+            android:clipToPadding="false"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp" />
 
-        <Button
-            android:id="@+id/sendButton"
-            android:layout_width="wrap_content"
+        <!-- Waveform, shown only while Spidey is speaking or listening -->
+        <com.riyas.offlineassistant.WaveformView
+            android:id="@+id/waveformView"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginBottom="4dp"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/voiceCaptionText"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Send"
-            android:enabled="false" />
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp"
+            android:visibility="gone"
+            android:text="" />
+
+        <!-- TEXT MODE input bar -->
+        <LinearLayout
+            android:id="@+id/textInputBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp"
+            android:paddingBottom="14dp"
+            android:paddingTop="4dp">
+
+            <EditText
+                android:id="@+id/inputBox"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:background="@drawable/bg_input_field"
+                android:hint="Ask Spidey something..."
+                android:textColorHint="@color/text_secondary"
+                android:textColor="@color/text_primary"
+                android:inputType="textMultiLine"
+                android:maxLines="4"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="10dp" />
+
+            <ImageButton
+                android:id="@+id/sendButton"
+                android:layout_width="46dp"
+                android:layout_height="46dp"
+                android:layout_marginStart="10dp"
+                android:background="@drawable/circle_mic_button"
+                android:src="@drawable/ic_send"
+                android:padding="12dp"
+                android:enabled="false"
+                android:contentDescription="Send" />
+
+        </LinearLayout>
+
+        <!-- VOICE MODE input bar -->
+        <LinearLayout
+            android:id="@+id/voiceInputBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingBottom="20dp"
+            android:paddingTop="4dp"
+            android:visibility="gone">
+
+            <ImageButton
+                android:id="@+id/micButton"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:background="@drawable/circle_mic_button"
+                android:src="@drawable/ic_mic"
+                android:padding="20dp"
+                android:contentDescription="Tap to speak"
+                android:enabled="false" />
+
+            <TextView
+                android:id="@+id/voiceHintText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Tap to speak"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+
+        </LinearLayout>
+
     </LinearLayout>
 
-</LinearLayout>
+</FrameLayout>

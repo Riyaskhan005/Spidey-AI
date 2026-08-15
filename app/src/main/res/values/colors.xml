@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Spidey palette -->
+    <color name="spidey_red">#E31E24</color>
+    <color name="spidey_red_dark">#A3131A</color>
+    <color name="spidey_blue">#1B3F8B</color>
+    <color name="spidey_blue_dark">#102A63</color>
+    <color name="spidey_black">#0C0C0F</color>
+    <color name="spidey_black_soft">#16161B</color>
+    <color name="spidey_web_grey">#2A2A33</color>
+    <color name="spidey_white">#F5F5F7</color>
+    <color name="spidey_gold">#FFC93C</color>
+
+    <color name="bubble_ai_bg">#1E2130</color>
+    <color name="bubble_user_bg">#1B3F8B</color>
+    <color name="text_primary">#F5F5F7</color>
+    <color name="text_secondary">#9A9AAE</color>
+    <color name="status_online">#3CE07A</color>
+</resources>
