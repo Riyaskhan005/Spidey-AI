@@ -50,11 +50,31 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var voiceManager: VoiceManager
 
+    // Pending call-command prompt, held while we ask for Contacts/Call permission
+    private var pendingCallPrompt: String? = null
+
     private val micPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             micButton.isEnabled = granted
             if (!granted) {
                 Toast.makeText(this, "Microphone permission is needed for voice mode.", Toast.LENGTH_LONG).show()
+            }
+        }
+
+    // Requests READ_CONTACTS + CALL_PHONE together, only when a call command is actually issued
+    private val callPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            val granted = results.values.all { it }
+            val prompt = pendingCallPrompt
+            pendingCallPrompt = null
+            if (granted && prompt != null) {
+                handleCallCommand(prompt)
+            } else if (!granted) {
+                Toast.makeText(
+                    this,
+                    "Contacts and Call permissions are needed to place calls.",
+                    Toast.LENGTH_LONG
+                ).show()
             }
         }
 
@@ -81,7 +101,7 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onListenResult = { spokenText ->
-                runOnUiThread { runGrokInference(spokenText) }
+                runOnUiThread { processUserInput(spokenText) }
             },
             onListenError = { message ->
                 runOnUiThread { voiceHintText.text = message }
@@ -172,7 +192,7 @@ class MainActivity : AppCompatActivity() {
             val prompt = inputBox.text.toString().trim()
             if (prompt.isNotEmpty()) {
                 inputBox.text.clear()
-                runGrokInference(prompt)
+                processUserInput(prompt)
             }
         }
     }
@@ -197,6 +217,60 @@ class MainActivity : AppCompatActivity() {
         if (!granted) {
             micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
+    }
+
+    // ── Command routing ─────────────────────────────────────────────────────
+
+    /**
+     * Every user prompt (typed or spoken) comes through here first.
+     * If it matches a local "call <name>" command, we handle it directly
+     * against Contacts and never touch Grok. Otherwise it falls through
+     * to normal AI inference.
+     */
+    private fun processUserInput(prompt: String) {
+        val callTarget = ContactCallHandler.extractCallTarget(prompt)
+        if (callTarget != null) {
+            if (hasCallPermissions()) {
+                handleCallCommand(prompt)
+            } else {
+                pendingCallPrompt = prompt
+                callPermissionLauncher.launch(
+                    arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE)
+                )
+            }
+            return
+        }
+        runGrokInference(prompt)
+    }
+
+    private fun hasCallPermissions(): Boolean {
+        val contactsGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.READ_CONTACTS
+        ) == PackageManager.PERMISSION_GRANTED
+        val callGranted = ContextCompat.checkSelfPermission(
+            this, Manifest.permission.CALL_PHONE
+        ) == PackageManager.PERMISSION_GRANTED
+        return contactsGranted && callGranted
+    }
+
+    /** Looks up the contact and places the call — no Grok API call involved. */
+    private fun handleCallCommand(prompt: String) {
+        val target = ContactCallHandler.extractCallTarget(prompt) ?: return
+
+        chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
+
+        val match = ContactCallHandler.findContact(this, target)
+        if (match == null) {
+            chatAdapter.addMessage(
+                ChatMessage("I couldn't find a contact named \"$target\".", isUser = false)
+            )
+            chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+            return
+        }
+
+        chatAdapter.addMessage(ChatMessage("Calling ${match.name}…", isUser = false))
+        chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+        ContactCallHandler.placeCall(this, match.number)
     }
 
     // ── Grok inference ───────────────────────────────────────────────────────

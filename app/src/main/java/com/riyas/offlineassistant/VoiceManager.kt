@@ -8,6 +8,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.speech.tts.Voice
 import java.util.Locale
 
 /**
@@ -34,7 +35,10 @@ class VoiceManager(
     fun init() {
         tts = TextToSpeech(context) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
-            tts?.language = Locale.getDefault()
+            if (ttsReady) {
+                tts?.language = Locale.getDefault()
+                applyMaleVoice()
+            }
         }
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = onSpeakStart()
@@ -42,6 +46,41 @@ class VoiceManager(
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) = onSpeakDone()
         })
+    }
+
+    /**
+     * Picks a male-sounding voice from the TTS engine if one is available.
+     * Most engines (Google TTS included) encode gender in the voice name
+     * (e.g. "en-us-x-sfg#male_1-local"), since the Voice API itself has no
+     * dedicated gender field. Falls back to a lowered pitch on the default
+     * voice if the engine doesn't expose an explicit male option.
+     */
+    private fun applyMaleVoice() {
+        val engine = tts ?: return
+        val availableVoices: Set<Voice> = try {
+            engine.voices ?: emptySet()
+        } catch (e: Exception) {
+            emptySet()
+        }
+
+        val locale = Locale.getDefault()
+
+        fun isMale(voice: Voice) =
+            voice.name.contains("male", ignoreCase = true) &&
+                !voice.name.contains("female", ignoreCase = true)
+
+        val maleVoice = availableVoices.firstOrNull { it.locale.language == locale.language && isMale(it) }
+            ?: availableVoices.firstOrNull { isMale(it) }
+
+        if (maleVoice != null) {
+            engine.voice = maleVoice
+            engine.setPitch(1.0f)
+        } else {
+            // No explicit male voice found on this device/engine — approximate
+            // a deeper voice by lowering pitch slightly on the default voice.
+            engine.setPitch(0.82f)
+        }
+        engine.setSpeechRate(1.0f)
     }
 
     fun speak(text: String) {
