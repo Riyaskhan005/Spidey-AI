@@ -15,5 +15,5 @@
     <path android:pathData="M12,22 Q17,17 19.5,19.5" android:strokeColor="#FFFFFF" android:strokeWidth="1" android:fillColor="#00000000"/>
     <path android:pathData="M2,12 Q7,7 4.5,4.5" android:strokeColor="#FFFFFF" android:strokeWidth="1" android:fillColor="#00000000"/>
     <path android:pathData="M22,12 Q17,17 19.5,19.5" android:strokeColor="#FFFFFF" android:strokeWidth="1" android:fillColor="#00000000"/>
-    <circle android:cx="12" android:cy="12" android:radius="2" android:fillColor="#E31E24"/>
+    <path android:pathData="M10,12 A2,2 0 1,0 14,12 A2,2 0 1,0 10,12 Z" android:fillColor="#E31E24"/>
 </vector>

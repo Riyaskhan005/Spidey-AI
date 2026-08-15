@@ -61,7 +61,7 @@ class WaveformView @JvmOverloads constructor(
                     // Randomly drift each bar towards a new target for an organic look.
                     if (Random.nextFloat() < 0.35f) {
                         val phase = i * 0.4f
-                        val base = 0.25f + 0.5f * ((sin(System.currentTimeMillis() / 180.0 + phase) + 1) / 2)
+                        val base = 0.25f + 0.5f * ((sin(System.currentTimeMillis() / 180.0 + phase) + 1) / 2).toFloat()
                         targetHeights[i] = (base + Random.nextFloat() * 0.25f).coerceIn(0.1f, 1f)
                     }
                     barHeights[i] += (targetHeights[i] - barHeights[i]) * 0.5f
