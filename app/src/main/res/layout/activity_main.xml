@@ -61,33 +61,42 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- Voice / Text mode toggle -->
-            <com.google.android.material.button.MaterialButtonToggleGroup
-                android:id="@+id/modeToggle"
+            <!-- Voice / Text mode toggle (pill style, single instance) -->
+            <LinearLayout
                 android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                app:singleSelection="true"
-                app:selectionRequired="true">
+                android:layout_height="40dp"
+                android:background="@drawable/bg_toggle_track"
+                android:orientation="horizontal"
+                android:padding="3dp">
 
-                <Button
-                    android:id="@+id/textModeButton"
-                    style="@style/ToggleButtonSpidey"
+                <com.google.android.material.button.MaterialButtonToggleGroup
+                    android:id="@+id/modeToggle"
                     android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:minWidth="0dp"
-                    android:paddingHorizontal="14dp"
-                    android:text="Text"
-                    android:checked="true" />
+                    android:layout_height="match_parent"
+                    app:singleSelection="true"
+                    app:selectionRequired="true">
 
-                <Button
-                    android:id="@+id/voiceModeButton"
-                    style="@style/ToggleButtonSpidey"
-                    android:layout_width="wrap_content"
-                    android:layout_height="36dp"
-                    android:minWidth="0dp"
-                    android:paddingHorizontal="14dp"
-                    android:text="Voice" />
-            </com.google.android.material.button.MaterialButtonToggleGroup>
+                    <Button
+                        android:id="@+id/voiceModeButton"
+                        style="@style/ToggleButtonSpidey"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="16dp"
+                        android:text="Voice"
+                        android:checked="true" />
+
+                    <Button
+                        android:id="@+id/textModeButton"
+                        style="@style/ToggleButtonSpidey"
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:minWidth="0dp"
+                        android:paddingHorizontal="16dp"
+                        android:text="Text" />
+                </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            </LinearLayout>
 
         </LinearLayout>
 
@@ -131,7 +140,8 @@
             android:gravity="center_vertical"
             android:paddingHorizontal="14dp"
             android:paddingBottom="14dp"
-            android:paddingTop="4dp">
+            android:paddingTop="4dp"
+            android:visibility="gone">
 
             <EditText
                 android:id="@+id/inputBox"
@@ -169,7 +179,7 @@
             android:gravity="center"
             android:paddingBottom="20dp"
             android:paddingTop="4dp"
-            android:visibility="gone">
+            android:visibility="visible">
 
             <ImageButton
                 android:id="@+id/micButton"

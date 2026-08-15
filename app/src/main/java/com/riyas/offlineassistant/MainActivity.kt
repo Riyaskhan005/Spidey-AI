@@ -45,7 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceHintText: TextView
 
     private val chatAdapter = ChatAdapter()
-    private var isVoiceMode = false
+    private var isVoiceMode = true
     private var isListening = false
 
     private lateinit var voiceManager: VoiceManager
@@ -137,17 +137,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupModeToggle() {
-        modeToggle.check(R.id.textModeButton)
+        modeToggle.check(R.id.voiceModeButton)
+        // Apply the initial visibility state directly, since the checked listener
+        // only fires on an actual state change — and voiceModeButton is already
+        // checked by default in the XML, so check() above won't trigger it.
+        applyModeVisibility(isVoiceMode = true)
+
         modeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
             if (!isChecked) return@addOnButtonCheckedListener
-            isVoiceMode = checkedId == R.id.voiceModeButton
-            textInputBar.visibility = if (isVoiceMode) View.GONE else View.VISIBLE
-            voiceInputBar.visibility = if (isVoiceMode) View.VISIBLE else View.GONE
-            if (!isVoiceMode) {
-                voiceManager.stopListening()
-                voiceManager.stopSpeaking()
-                waveformView.stop()
-            }
+            applyModeVisibility(isVoiceMode = checkedId == R.id.voiceModeButton)
+        }
+    }
+
+    private fun applyModeVisibility(isVoiceMode: Boolean) {
+        this.isVoiceMode = isVoiceMode
+        textInputBar.visibility = if (isVoiceMode) View.GONE else View.VISIBLE
+        voiceInputBar.visibility = if (isVoiceMode) View.VISIBLE else View.GONE
+        if (!isVoiceMode) {
+            voiceManager.stopListening()
+            voiceManager.stopSpeaking()
+            waveformView.stop()
         }
     }
 
@@ -227,8 +236,6 @@ class MainActivity : AppCompatActivity() {
                     grokHistory.add(Pair("assistant", sb.toString()))
                     statusText.text = "Ready."
                     if (isVoiceMode) {
-                        voiceCaptionText.visibility = View.VISIBLE
-                        voiceCaptionText.text = sb.toString()
                         voiceManager.speak(sb.toString())
                     }
                 } else {
