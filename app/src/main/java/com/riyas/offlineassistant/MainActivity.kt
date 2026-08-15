@@ -1,4 +1,4 @@
-package com.riyas.offlineassistant
+package com.riyas.SpideyAssistant
 
 import android.Manifest
 import android.content.pm.PackageManager

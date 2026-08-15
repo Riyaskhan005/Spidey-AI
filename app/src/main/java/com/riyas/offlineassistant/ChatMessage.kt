@@ -1,4 +1,4 @@
-package com.riyas.offlineassistant
+package com.riyas.SpideyAssistant
 
 /**
  * A single turn in the conversation, shown as a bubble in the chat list.

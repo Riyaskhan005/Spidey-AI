@@ -11,11 +11,11 @@ if (localPropsFile.exists()) {
 }
 
 android {
-    namespace 'com.riyas.offlineassistant'
+    namespace 'com.riyas.SpideyAssistant'
     compileSdk 34
 
     defaultConfig {
-        applicationId "com.riyas.offlineassistant"
+        applicationId "com.riyas.SpideyAssistant"
         minSdk 26
         targetSdk 34
         versionCode 1

@@ -1,5 +1,5 @@
 <resources>
-    <style name="Theme.OfflineAssistant" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.SpideyAssistant" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/spidey_red</item>
         <item name="colorPrimaryDark">@color/spidey_black</item>
         <item name="colorAccent">@color/spidey_blue</item>

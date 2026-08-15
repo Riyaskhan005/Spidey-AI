@@ -1,4 +1,4 @@
-package com.riyas.offlineassistant
+package com.riyas.SpideyAssistant
 
 import android.animation.ValueAnimator
 import android.content.Context

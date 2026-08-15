@@ -7,6 +7,6 @@ cd /d D:\Projects\Spidey AI
 
 gradle clean assembleDebug
 
-adb uninstall com.riyas.offlineassistant
+adb uninstall com.riyas.SpideyAssistant
 
 adb install app\build\outputs\apk\debug\app-debug.apk
