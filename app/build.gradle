@@ -23,7 +23,7 @@ android {
 
         // Inject Groq API key into BuildConfig so it's never hardcoded in source
         buildConfigField "String", "GROK_API_KEY", "\"${localProps.getProperty('GROK_API_KEY', '')}\""
-        buildConfigField "String", "GROK_MODEL",   "\"llama-3.3-70b-versatile\""
+        buildConfigField "String", "GROK_MODEL",   "\"openai/gpt-oss-120b\""
         buildConfigField "String", "GROK_BASE_URL", "\"https://api.groq.com/openai/v1\""
     }
 
