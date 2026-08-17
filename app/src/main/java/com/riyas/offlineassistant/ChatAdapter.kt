@@ -5,6 +5,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import io.noties.markwon.Markwon
 
 private const val TYPE_USER = 0
 private const val TYPE_AI = 1
@@ -24,20 +25,54 @@ class ChatAdapter(
     override fun getItemViewType(position: Int): Int =
         if (messages[position].isUser) TYPE_USER else TYPE_AI
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+    override fun onCreateViewHolder(
+        parent: ViewGroup,
+        viewType: Int
+    ): RecyclerView.ViewHolder {
+
         val inflater = LayoutInflater.from(parent.context)
+
         return if (viewType == TYPE_USER) {
-            UserVH(inflater.inflate(R.layout.item_message_user, parent, false))
+            UserVH(
+                inflater.inflate(
+                    R.layout.item_message_user,
+                    parent,
+                    false
+                )
+            )
         } else {
-            AiVH(inflater.inflate(R.layout.item_message_ai, parent, false))
+            AiVH(
+                inflater.inflate(
+                    R.layout.item_message_ai,
+                    parent,
+                    false
+                )
+            )
         }
     }
 
-    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+    override fun onBindViewHolder(
+        holder: RecyclerView.ViewHolder,
+        position: Int
+    ) {
         val msg = messages[position]
+
         when (holder) {
-            is UserVH -> holder.text.text = msg.text
-            is AiVH -> holder.text.text = msg.text.ifEmpty { "…" }
+
+            is UserVH -> {
+                holder.text.text = msg.text
+            }
+
+            is AiVH -> {
+                val text = msg.text.ifEmpty { "…" }
+
+                val markwon = Markwon.create(holder.text.context)
+
+                markwon.setMarkdown(
+                    holder.text,
+                    text
+                )
+            }
         }
     }
 
@@ -53,7 +88,11 @@ class ChatAdapter(
     /** Updates the text of the message at [index], e.g. while a streaming reply grows. */
     fun updateMessage(index: Int, newText: String) {
         if (index !in messages.indices) return
-        messages[index] = messages[index].copy(text = newText)
+
+        messages[index] = messages[index].copy(
+            text = newText
+        )
+
         notifyItemChanged(index)
     }
 

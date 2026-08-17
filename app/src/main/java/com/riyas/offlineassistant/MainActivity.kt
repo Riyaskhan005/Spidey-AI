@@ -52,6 +52,7 @@ class MainActivity : AppCompatActivity() {
 
     // Pending call-command prompt, held while we ask for Contacts/Call permission
     private var pendingCallPrompt: String? = null
+    private var pendingLocationPrompt: String? = null
 
     private val micPermissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -74,6 +75,29 @@ class MainActivity : AppCompatActivity() {
                     this,
                     "Contacts and Call permissions are needed to place calls.",
                     Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+
+    private val locationCommandPermissionLauncher =
+        registerForActivityResult(
+            ActivityResultContracts.RequestMultiplePermissions()
+        ) { results ->
+
+            val granted =
+                results[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+                results[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+
+            val prompt = pendingLocationPrompt
+            pendingLocationPrompt = null
+
+            if (granted && prompt != null) {
+                processUserInput(prompt)
+            } else {
+                Toast.makeText(
+                    this,
+                    "Location permission is needed.",
+                    Toast.LENGTH_SHORT
                 ).show()
             }
         }
@@ -235,13 +259,153 @@ class MainActivity : AppCompatActivity() {
             } else {
                 pendingCallPrompt = prompt
                 callPermissionLauncher.launch(
-                    arrayOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE)
+                    arrayOf(
+                        Manifest.permission.READ_CONTACTS,
+                        Manifest.permission.CALL_PHONE
+                    )
                 )
             }
             return
         }
+        val hasLocationPermission =
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+
+        if (prompt.trim().equals("where am i", ignoreCase = true) ||
+            prompt.trim().equals("what's my location", ignoreCase = true) ||
+            prompt.trim().equals("what is my location", ignoreCase = true) ||
+            prompt.trim().equals("current location", ignoreCase = true) ||
+            prompt.trim().equals("my location", ignoreCase = true)
+        ) {
+            if (!hasLocationPermission) {
+                pendingLocationPrompt = prompt
+                locationCommandPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+                return
+            }
+        }
+
+        val command = CommandHandler.handle(
+            this,
+            prompt
+        ) { locationResult ->
+            runOnUiThread {
+                respondLocally(locationResult)
+            }
+        }
+        if (command != null) {
+            handleLocalCommand(prompt, command)
+            return
+        }
+
+        chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
+        chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
         runGrokInference(prompt)
     }
+
+    private fun handleLocalCommand(prompt: String, command: CommandResult) {
+        chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
+        chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+
+        when (command) {
+
+            // Battery
+            is CommandResult.Battery -> {
+                respondLocally(command.phrase)
+            }
+
+            // Time
+            is CommandResult.Time -> {
+                respondLocally(command.phrase)
+            }
+
+            // Flashlight
+            is CommandResult.Flashlight -> {
+                respondLocally(command.phrase)
+            }
+
+            // Open app
+            is CommandResult.OpenApp -> {
+                respondLocally(command.ackPhrase)
+            }
+
+            // Weather
+            is CommandResult.Weather -> {
+                respondLocally(command.ackPhrase)
+
+                val hasLocationPermission =
+                    ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.ACCESS_FINE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED ||
+                    ContextCompat.checkSelfPermission(
+                        this,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+
+                if (!hasLocationPermission) {
+                    locationPermissionLauncher.launch(
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                    return
+                }
+
+                lifecycleScope.launch {
+                    val result = WeatherHelper.fetchWeatherPhrase(this@MainActivity)
+                    respondLocally(result)
+                }
+            }
+
+            // Web search
+            is CommandResult.WebSearch -> {
+                respondLocally(command.ackPhrase)
+
+                runGrokInference(
+                    command.query,
+                    resultPrefix = "Here's what I found: "
+                )
+            }
+
+            // Location
+            is CommandResult.Location -> {
+                respondLocally(command.ackPhrase)
+            }
+        }
+    }
+
+    /** Adds a Spidey chat bubble for a local (non-Grok) response and speaks it in voice mode. */
+    private fun respondLocally(text: String) {
+        chatAdapter.addMessage(ChatMessage(text, isUser = false))
+        chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+        if (isVoiceMode) voiceManager.speak(text)
+    }
+
+    private val locationPermissionLauncher =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            if (!granted) {
+                Toast.makeText(
+                    this,
+                    "Location permission is needed for weather.",
+                    Toast.LENGTH_SHORT
+                ).show()
+                return@registerForActivityResult
+            }
+
+            lifecycleScope.launch {
+                val result = WeatherHelper.fetchWeatherPhrase(this@MainActivity)
+                respondLocally(result)
+            }
+        }
 
     private fun hasCallPermissions(): Boolean {
         val contactsGranted = ContextCompat.checkSelfPermission(
@@ -275,12 +439,11 @@ class MainActivity : AppCompatActivity() {
 
     // ── Grok inference ───────────────────────────────────────────────────────
 
-    private fun runGrokInference(prompt: String) {
+    private fun runGrokInference(prompt: String, resultPrefix: String = "") {
         sendButton.isEnabled = false
         micButton.isEnabled = false
         statusText.text = "Thinking…"
 
-        chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
         val aiIndex = chatAdapter.addMessage(ChatMessage("", isUser = false, isStreaming = true))
         chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
 
@@ -294,7 +457,7 @@ class MainActivity : AppCompatActivity() {
                 grokClient.streamChat(prompt, history = grokHistory.dropLast(1))
                     .collect { token ->
                         sb.append(token)
-                        chatAdapter.updateMessage(aiIndex, sb.toString())
+                        chatAdapter.updateMessage(aiIndex, resultPrefix + sb.toString())
                         chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
                     }
             } catch (e: Exception) {
@@ -310,7 +473,7 @@ class MainActivity : AppCompatActivity() {
                     grokHistory.add(Pair("assistant", sb.toString()))
                     statusText.text = "Ready."
                     if (isVoiceMode) {
-                        voiceManager.speak(sb.toString())
+                        voiceManager.speak(resultPrefix + sb.toString())
                     }
                 } else {
                     grokHistory.removeLastOrNull()

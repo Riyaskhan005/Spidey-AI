@@ -51,41 +51,189 @@ object ContactCallHandler {
         return null
     }
 
-    /**
-     * Looks up [name] in the device Contacts. Prefers an exact (case-insensitive)
-     * display-name match; falls back to the first partial match.
-     */
     fun findContact(context: Context, name: String): ContactMatch? {
         val resolver = context.contentResolver
+
         val projection = arrayOf(
             ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
             ContactsContract.CommonDataKinds.Phone.NUMBER
         )
-        val selection = "${ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME} LIKE ?"
-        val selectionArgs = arrayOf("%$name%")
 
-        var exactMatch: ContactMatch? = null
-        var partialMatch: ContactMatch? = null
+        val candidates = mutableListOf<ContactMatch>()
 
         resolver.query(
             ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-            projection, selection, selectionArgs, null
+            projection,
+            null,
+            null,
+            null
         )?.use { cursor ->
-            val nameIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
-            val numberIdx = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
+            val nameIdx =
+                cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+
+            val numberIdx =
+                cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+
             while (cursor.moveToNext()) {
                 val contactName = cursor.getString(nameIdx) ?: continue
                 val number = cursor.getString(numberIdx) ?: continue
-                if (contactName.equals(name, ignoreCase = true)) {
-                    exactMatch = ContactMatch(contactName, number)
-                    return@use
-                } else if (partialMatch == null) {
-                    partialMatch = ContactMatch(contactName, number)
-                }
+
+                candidates.add(
+                    ContactMatch(
+                        contactName,
+                        number
+                    )
+                )
             }
         }
 
-        return exactMatch ?: partialMatch
+        if (candidates.isEmpty()) return null
+
+        // Normalize user's requested name
+        val target = normalizeName(name)
+
+        if (target.isBlank()) return null
+
+        // ---------------------------------------------------------
+        // 1. Exact normalized full-name match
+        // ---------------------------------------------------------
+        candidates.firstOrNull {
+            normalizeName(it.name) == target
+        }?.let {
+            return it
+        }
+
+        // ---------------------------------------------------------
+        // 2. Exact normalized single-word match
+        // ---------------------------------------------------------
+        val exactWordMatches = candidates.filter { candidate ->
+
+            val words = normalizeName(candidate.name)
+                .split(Regex("\\s+"))
+
+            words.any { word ->
+                word == target
+            }
+        }
+
+        if (exactWordMatches.size == 1) {
+            return exactWordMatches.first()
+        }
+
+        // Multiple contacts have the same word.
+        // Don't randomly call one.
+        if (exactWordMatches.size > 1) {
+            return null
+        }
+
+        // ---------------------------------------------------------
+        // 3. Contact name STARTS WITH target
+        // Example:
+        // target = "amma"
+        // contact = "amma mom"
+        // ---------------------------------------------------------
+        candidates.firstOrNull {
+
+            val normalizedContact = normalizeName(it.name)
+
+            normalizedContact == target ||
+                    normalizedContact.startsWith("$target ")
+        }?.let {
+            return it
+        }
+
+        // ---------------------------------------------------------
+        // 4. Contact name CONTAINS target
+        // Example:
+        // target = "amma"
+        // contact = "my amma"
+        // ---------------------------------------------------------
+        candidates.firstOrNull {
+
+            val normalizedContact = normalizeName(it.name)
+
+            normalizedContact.contains(target)
+        }?.let {
+            return it
+        }
+
+        // ---------------------------------------------------------
+        // 5. Reverse contains
+        // Example:
+        // target = "amma mom"
+        // contact = "amma"
+        // ---------------------------------------------------------
+        candidates.firstOrNull {
+
+            val normalizedContact = normalizeName(it.name)
+
+            target.contains(normalizedContact)
+        }?.let {
+            return it
+        }
+
+        // ---------------------------------------------------------
+        // 6. Fuzzy matching
+        // ---------------------------------------------------------
+        var best: ContactMatch? = null
+        var bestScore = 0.0
+
+        for (candidate in candidates) {
+
+            val normalizedContact = normalizeName(candidate.name)
+
+            if (normalizedContact.isBlank()) continue
+
+            val words = normalizedContact.split(Regex("\\s+"))
+
+            val score = (words + normalizedContact).maxOf {
+                similarity(target, it)
+            }
+
+            if (score > bestScore) {
+                bestScore = score
+                best = candidate
+            }
+        }
+
+        return if (bestScore >= 0.72) {
+            best
+        } else {
+            null
+        }
+    }
+
+    /** Similarity in [0.0, 1.0] — 1.0 means identical, based on edit distance. */
+    private fun similarity(a: String, b: String): Double {
+        val maxLen = maxOf(a.length, b.length)
+        if (maxLen == 0) return 1.0
+        return 1.0 - levenshtein(a, b).toDouble() / maxLen
+    }
+
+    private fun levenshtein(a: String, b: String): Int {
+        val dp = Array(a.length + 1) { IntArray(b.length + 1) }
+        for (i in 0..a.length) dp[i][0] = i
+        for (j in 0..b.length) dp[0][j] = j
+        for (i in 1..a.length) {
+            for (j in 1..b.length) {
+                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
+                dp[i][j] = minOf(
+                    dp[i - 1][j] + 1,      // deletion
+                    dp[i][j - 1] + 1,      // insertion
+                    dp[i - 1][j - 1] + cost // substitution
+                )
+            }
+        }
+        return dp[a.length][b.length]
+    }
+
+    private fun normalizeName(value: String): String {
+        return value
+            .lowercase()
+            .replace(Regex("[^\\p{L}\\p{N}\\s]"), "")
+            .replace(Regex("\\s+"), " ")
+            .trim()
     }
 
     /** Places a direct phone call to [number] (requires CALL_PHONE permission granted). */
