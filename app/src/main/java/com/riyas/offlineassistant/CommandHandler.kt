@@ -48,6 +48,10 @@ object CommandHandler {
         Regex("""(?i)^weather$""")
     )
 
+    private val WEATHER_TRAILING_FILLER = Regex(
+        """(?i)\s*(?:right\s+now|now|please|currently|today|out\s*there|outside)\s*$"""
+    )
+
     private val OPEN_APP_PATTERNS = listOf(
         Regex("""(?i)^open (.+)$"""),
         Regex("""(?i)^launch (.+)$"""),
@@ -122,7 +126,9 @@ object CommandHandler {
 
         for (pattern in WEATHER_PATTERNS) {
             val match = pattern.matchEntire(text) ?: continue
-            val location = match.groupValues.getOrNull(1)?.trim()
+            var location = match.groupValues.getOrNull(1)?.trim()
+
+            location = location?.replace(WEATHER_TRAILING_FILLER, "")?.trim()
 
             return CommandResult.Weather(
                 WEATHER_ACK.random(),

@@ -338,10 +338,20 @@ class MainActivity : AppCompatActivity() {
             is CommandResult.OpenApp -> {
                 respondLocally(command.ackPhrase)
             }
-
-            // Weather
+            
+             // Weather
             is CommandResult.Weather -> {
                 respondLocally(command.ackPhrase)
+
+                if (command.location != null) {
+                    // A city was named in the prompt (e.g. "weather in Chennai") —
+                    // geocode it directly, no GPS permission required.
+                    lifecycleScope.launch {
+                        val result = WeatherHelper.fetchWeatherPhrase(this@MainActivity, command.location)
+                        respondLocally(result)
+                    }
+                    return
+                }
 
                 val hasLocationPermission =
                     ContextCompat.checkSelfPermission(
