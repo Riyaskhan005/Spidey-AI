@@ -467,20 +467,21 @@ class MainActivity : AppCompatActivity() {
                 grokClient.streamChat(prompt, history = grokHistory.dropLast(1))
                     .collect { token ->
                         sb.append(token)
-                        chatAdapter.updateMessage(aiIndex, resultPrefix + sb.toString())
+                        chatAdapter.updateMessage(aiIndex, resultPrefix + sb.toString(), isStreaming = true)
                         chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
                     }
             } catch (e: Exception) {
                 hadError = true
                 val msg = e.message ?: "Unknown error"
                 statusText.text = "❌ Error"
-                chatAdapter.updateMessage(aiIndex, "Something went wrong:\n$msg")
+                chatAdapter.updateMessage(aiIndex, "Something went wrong:\n$msg", isStreaming = false)
                 grokHistory.removeLastOrNull()
             }
 
             if (!hadError) {
                 if (sb.isNotEmpty()) {
                     grokHistory.add(Pair("assistant", sb.toString()))
+                    chatAdapter.updateMessage(aiIndex, resultPrefix + sb.toString(), isStreaming = false)
                     statusText.text = "Ready."
                     if (isVoiceMode) {
                         voiceManager.speak(resultPrefix + sb.toString())
@@ -490,7 +491,8 @@ class MainActivity : AppCompatActivity() {
                     statusText.text = "⚠️ No response"
                     chatAdapter.updateMessage(
                         aiIndex,
-                        "No response received from Grok API.\n\nPossible reasons:\n• API key missing or invalid\n• Network issue\n• Model quota exceeded"
+                        "No response received from Grok API.\n\nPossible reasons:\n• API key missing or invalid\n• Network issue\n• Model quota exceeded",
+                        isStreaming = false
                     )
                 }
             }

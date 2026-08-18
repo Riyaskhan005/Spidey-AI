@@ -1,9 +1,14 @@
 package com.riyas.SpideyAssistant
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.recyclerview.widget.RecyclerView
 import io.noties.markwon.Markwon
 
@@ -20,6 +25,9 @@ class ChatAdapter(
 
     class AiVH(view: View) : RecyclerView.ViewHolder(view) {
         val text: TextView = view.findViewById(R.id.messageText)
+        val actionsContainer: View = view.findViewById(R.id.actionsContainer)
+        val copyButton: ImageView = view.findViewById(R.id.copyButton)
+        val copyCodeButton: ImageView = view.findViewById(R.id.copyCodeButton)
     }
 
     override fun getItemViewType(position: Int): Int =
@@ -56,6 +64,7 @@ class ChatAdapter(
         position: Int
     ) {
         val msg = messages[position]
+        val context = holder.itemView.context
 
         when (holder) {
 
@@ -67,11 +76,28 @@ class ChatAdapter(
                 val text = msg.text.ifEmpty { "…" }
 
                 val markwon = Markwon.create(holder.text.context)
-
                 markwon.setMarkdown(
                     holder.text,
                     text
                 )
+
+                val hasContent = msg.text.isNotBlank()
+                holder.actionsContainer.visibility = if (hasContent && !msg.isStreaming) View.VISIBLE else View.GONE
+
+                val codeBlocks = extractCodeBlocks(msg.text)
+                if (codeBlocks.isNotEmpty() && !msg.isStreaming) {
+                    holder.copyCodeButton.visibility = View.VISIBLE
+                    holder.copyCodeButton.setOnClickListener {
+                        val codeToCopy = codeBlocks.joinToString("\n\n")
+                        copyToClipboard(context, codeToCopy, "Code copied to clipboard")
+                    }
+                } else {
+                    holder.copyCodeButton.visibility = View.GONE
+                }
+
+                holder.copyButton.setOnClickListener {
+                    copyToClipboard(context, msg.text, "Copied to clipboard")
+                }
             }
         }
     }
@@ -86,11 +112,12 @@ class ChatAdapter(
     }
 
     /** Updates the text of the message at [index], e.g. while a streaming reply grows. */
-    fun updateMessage(index: Int, newText: String) {
+    fun updateMessage(index: Int, newText: String, isStreaming: Boolean = false) {
         if (index !in messages.indices) return
 
         messages[index] = messages[index].copy(
-            text = newText
+            text = newText,
+            isStreaming = isStreaming
         )
 
         notifyItemChanged(index)
@@ -100,5 +127,26 @@ class ChatAdapter(
         if (index !in messages.indices) return
         messages.removeAt(index)
         notifyItemRemoved(index)
+    }
+
+    private fun copyToClipboard(context: Context, text: String, toastMessage: String) {
+        if (text.isBlank()) return
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("Spidey AI", text)
+        clipboard.setPrimaryClip(clip)
+        Toast.makeText(context, toastMessage, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun extractCodeBlocks(markdown: String): List<String> {
+        val list = mutableListOf<String>()
+        val regex = Regex("```(?:[a-zA-Z0-9_-]+)?\n?([\\s\\S]*?)```")
+        val matches = regex.findAll(markdown)
+        for (match in matches) {
+            val code = match.groups[1]?.value?.trim()
+            if (!code.isNullOrEmpty()) {
+                list.add(code)
+            }
+        }
+        return list
     }
 }

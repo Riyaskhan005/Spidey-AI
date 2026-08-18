@@ -20,6 +20,7 @@
         android:paddingHorizontal="16dp"
         android:paddingVertical="10dp"
         android:textColor="@color/text_primary"
-        android:textSize="15sp" />
+        android:textSize="15sp"
+        android:textIsSelectable="true" />
 
 </LinearLayout>

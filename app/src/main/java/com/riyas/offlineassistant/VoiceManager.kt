@@ -43,6 +43,7 @@ class VoiceManager(
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = onSpeakStart()
             override fun onDone(utteranceId: String?) = onSpeakDone()
+            @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) = onSpeakDone()
         })
@@ -83,10 +84,16 @@ class VoiceManager(
         engine.setSpeechRate(1.0f)
     }
 
-    fun speak(text: String) {
+    fun speak(text: String, summarizeLong: Boolean = true) {
         if (!ttsReady || text.isBlank()) return
+        val spokenText = if (summarizeLong) {
+            SpeechFormatter.formatForSpeech(text)
+        } else {
+            SpeechFormatter.cleanMarkdown(text)
+        }
+        if (spokenText.isBlank()) return
         val id = "spidey_${System.currentTimeMillis()}"
-        tts?.speak(text, TextToSpeech.QUEUE_FLUSH, null, id)
+        tts?.speak(spokenText, TextToSpeech.QUEUE_FLUSH, null, id)
     }
 
     fun stopSpeaking() {
