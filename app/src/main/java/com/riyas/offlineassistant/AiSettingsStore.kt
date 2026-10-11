@@ -34,6 +34,28 @@ class AiSettingsStore(context: Context) {
     private val preferences = context.getSharedPreferences("ai_provider_settings", Context.MODE_PRIVATE)
     private val keyAlias = "spidey.ai.provider.key"
 
+    fun loadTavilyApiKey(): String =
+        preferences.getString("tavily_api_key", null)?.let(::decrypt).orEmpty()
+
+    fun saveTavilyApiKey(apiKey: String) {
+        preferences.edit().putString("tavily_api_key", encrypt(apiKey.trim())).apply()
+    }
+
+    fun loadElevenLabsApiKey(): String =
+        preferences.getString("elevenlabs_api_key", null)?.let(::decrypt).orEmpty()
+
+    fun saveElevenLabsApiKey(apiKey: String) {
+        preferences.edit().putString("elevenlabs_api_key", encrypt(apiKey.trim())).apply()
+    }
+
+    fun loadElevenLabsVoiceId(): String =
+        preferences.getString("elevenlabs_voice_id", "JBFqnCBsd6RMkjVDRZzb")
+            ?: "JBFqnCBsd6RMkjVDRZzb"
+
+    fun saveElevenLabsVoiceId(voiceId: String) {
+        preferences.edit().putString("elevenlabs_voice_id", voiceId.trim()).apply()
+    }
+
     fun load(): AiSettings {
         val provider = runCatching {
             AiProvider.valueOf(preferences.getString("active_provider", AiProvider.GROK.name)!!)

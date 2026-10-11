@@ -16,6 +16,9 @@ class AiSettingsActivity : AppCompatActivity() {
     private lateinit var providerGroup: RadioGroup
     private lateinit var modelInput: EditText
     private lateinit var apiKeyInput: EditText
+    private lateinit var tavilyApiKeyInput: EditText
+    private lateinit var elevenLabsApiKeyInput: EditText
+    private lateinit var elevenLabsVoiceIdInput: EditText
     private val drafts = mutableMapOf<AiProvider, AiSettings>()
     private var selectedProvider = AiProvider.GROK
 
@@ -34,7 +37,13 @@ class AiSettingsActivity : AppCompatActivity() {
         providerGroup = findViewById(R.id.providerGroup)
         modelInput = findViewById(R.id.modelInput)
         apiKeyInput = findViewById(R.id.apiKeyInput)
+        tavilyApiKeyInput = findViewById(R.id.tavilyApiKeyInput)
+        elevenLabsApiKeyInput = findViewById(R.id.elevenLabsApiKeyInput)
+        elevenLabsVoiceIdInput = findViewById(R.id.elevenLabsVoiceIdInput)
         selectedProvider = settingsStore.load().provider
+        tavilyApiKeyInput.setText(settingsStore.loadTavilyApiKey())
+        elevenLabsApiKeyInput.setText(settingsStore.loadElevenLabsApiKey())
+        elevenLabsVoiceIdInput.setText(settingsStore.loadElevenLabsVoiceId())
 
         findViewById<ImageButton>(R.id.backButton).setOnClickListener { finish() }
         providerGroup.check(providerRadioIds.getValue(selectedProvider))
@@ -63,6 +72,9 @@ class AiSettingsActivity : AppCompatActivity() {
     )
 
     private fun saveSettings() {
+        settingsStore.saveTavilyApiKey(tavilyApiKeyInput.text.toString())
+        settingsStore.saveElevenLabsApiKey(elevenLabsApiKeyInput.text.toString())
+        settingsStore.saveElevenLabsVoiceId(elevenLabsVoiceIdInput.text.toString())
         val active = currentProfile()
         if (active.model.isBlank()) {
             modelInput.error = "Enter a model name"

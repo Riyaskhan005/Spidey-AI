@@ -13,6 +13,8 @@ import java.util.regex.Pattern
  */
 object SpeechFormatter {
 
+    data class SpeechSegment(val text: String, val isTamil: Boolean)
+
     private const val MAX_SHORT_CHARS = 200
     private const val MAX_SUMMARY_CHARS = 180
 
@@ -100,6 +102,48 @@ object SpeechFormatter {
         // Normalize whitespace and line breaks
         s = s.replace(Regex("\\s+"), " ").trim()
         return s
+    }
+
+    fun splitByLanguage(text: String): List<SpeechSegment> {
+        val segments = mutableListOf<SpeechSegment>()
+        var currentText = StringBuilder()
+        var currentIsTamil: Boolean? = null
+        var pendingWhitespace = StringBuilder()
+
+        fun flush() {
+            val segmentLanguage = currentIsTamil ?: return
+            if (currentText.isNotEmpty()) segments += SpeechSegment(currentText.toString(), segmentLanguage)
+            currentText = StringBuilder()
+            currentIsTamil = null
+        }
+
+        for (character in text) {
+            if (character.isWhitespace()) {
+                pendingWhitespace.append(character)
+                continue
+            }
+
+            val isTamil = character in '\u0B80'..'\u0BFF'
+            val isLanguageCharacter = isTamil || character.isLetterOrDigit()
+
+            if (!isLanguageCharacter) {
+                if (currentIsTamil != null) currentText.append(character)
+                else pendingWhitespace.append(character)
+                continue
+            }
+
+            if (currentIsTamil != null && currentIsTamil != isTamil) flush()
+            if (currentIsTamil == null) currentIsTamil = isTamil
+            if (pendingWhitespace.isNotEmpty()) {
+                currentText.append(pendingWhitespace)
+                pendingWhitespace = StringBuilder()
+            }
+            currentText.append(character)
+        }
+
+        if (pendingWhitespace.isNotEmpty()) currentText.append(pendingWhitespace)
+        flush()
+        return segments
     }
 
     /**
