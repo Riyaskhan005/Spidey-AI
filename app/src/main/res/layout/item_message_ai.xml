@@ -8,28 +8,25 @@
 
     <TextView
         android:id="@+id/senderLabel"
-        android:layout_width="30dp"
-        android:layout_height="30dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_marginEnd="8dp"
-        android:background="@drawable/circle_mic_button"
         android:gravity="center"
-        android:text="S"
+        android:text="Spidey:"
         android:textColor="@color/text_primary"
         android:textStyle="bold" />
 
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_weight="1"
         android:orientation="vertical">
 
         <TextView
             android:id="@+id/messageText"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:maxWidth="280dp"
-            android:background="@drawable/bubble_ai"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="10dp"
+            android:paddingVertical="3dp"
             android:textColor="@color/text_primary"
             android:textSize="15sp"
             android:textIsSelectable="true" />
@@ -71,10 +68,5 @@
         </LinearLayout>
 
     </LinearLayout>
-
-    <View
-        android:layout_width="0dp"
-        android:layout_height="1dp"
-        android:layout_weight="1" />
 
 </LinearLayout>

@@ -1,10 +1,10 @@
 package com.riyas.SpideyAssistant
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
-import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.LinearLayout
@@ -16,25 +16,39 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity() {
 
-    // Grok client — lazily created, reused across calls
-    private val grokClient: GrokClient by lazy { GrokClient() }
+    private val settingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            aiSettings = aiSettingsStore.load()
+            grokClient = createClient(aiSettings)
+            grokHistory.clear()
+            updateProviderStatus()
+        }
+    }
+
+    private lateinit var grokClient: GrokClient
+    private lateinit var aiSettingsStore: AiSettingsStore
+    private lateinit var aiSettings: AiSettings
 
     // Conversation history for multi-turn Grok sessions: list of (role, content) pairs
     private val grokHistory = mutableListOf<Pair<String, String>>()
 
     private lateinit var statusText: TextView
     private lateinit var chatRecyclerView: RecyclerView
-    private lateinit var waveformView: WaveformView
+    private lateinit var liveWaveView: LiveWaveView
     private lateinit var voiceCaptionText: TextView
 
     private lateinit var modeToggle: MaterialButtonToggleGroup
-    private lateinit var textModeButton: Button
-    private lateinit var voiceModeButton: Button
+    private lateinit var textModeButton: MaterialButton
+    private lateinit var voiceModeButton: MaterialButton
+    private lateinit var settingsButton: ImageButton
 
     private lateinit var textInputBar: LinearLayout
     private lateinit var inputBox: EditText
@@ -52,6 +66,7 @@ class MainActivity : AppCompatActivity() {
 
     // Pending call-command prompt, held while we ask for Contacts/Call permission
     private var pendingCallPrompt: String? = null
+    private var pendingCallTarget: String? = null
     private var pendingLocationPrompt: String? = null
 
     private val micPermissionLauncher =
@@ -67,9 +82,11 @@ class MainActivity : AppCompatActivity() {
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
             val granted = results.values.all { it }
             val prompt = pendingCallPrompt
+            val target = pendingCallTarget
             pendingCallPrompt = null
-            if (granted && prompt != null) {
-                handleCallCommand(prompt)
+            pendingCallTarget = null
+            if (granted && prompt != null && target != null) {
+                handleCallCommand(prompt, target)
             } else if (!granted) {
                 Toast.makeText(
                     this,
@@ -107,6 +124,9 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         bindViews()
+        aiSettingsStore = AiSettingsStore(this)
+        aiSettings = aiSettingsStore.load()
+        grokClient = createClient(aiSettings)
         setupChatList()
         setupModeToggle()
         setupTextInput()
@@ -114,15 +134,28 @@ class MainActivity : AppCompatActivity() {
 
         voiceManager = VoiceManager(
             context = this,
-            onSpeakStart = { runOnUiThread { waveformView.start() } },
-            onSpeakDone = { runOnUiThread { waveformView.stop() } },
+            onSpeakStart = {
+                runOnUiThread {
+                    liveWaveView.start()
+                }
+            },
+            onSpeakDone = {
+                runOnUiThread {
+                    if (!isListening) liveWaveView.stop()
+                }
+            },
             onListenStart = {
                 runOnUiThread {
                     isListening = true
-                    micButton.setBackgroundResource(R.drawable.circle_mic_button_active)
+                    micButton.setBackgroundResource(R.drawable.bg_live_mic_button_active)
+                    micButton.setImageResource(R.drawable.ic_close)
+                    micButton.contentDescription = "Stop listening"
                     voiceHintText.text = "Listening…"
-                    waveformView.start()
+                    liveWaveView.start()
                 }
+            },
+            onListenLevel = { rmsDb ->
+                runOnUiThread { liveWaveView.setInputLevel(rmsDb) }
             },
             onListenResult = { spokenText ->
                 runOnUiThread { processUserInput(spokenText) }
@@ -133,23 +166,19 @@ class MainActivity : AppCompatActivity() {
             onListenEnd = {
                 runOnUiThread {
                     isListening = false
-                    micButton.setBackgroundResource(R.drawable.circle_mic_button)
-                    waveformView.stop()
+                    micButton.setBackgroundResource(R.drawable.bg_live_mic_button)
+                    micButton.setImageResource(R.drawable.ic_mic)
+                    micButton.contentDescription = "Tap to speak"
+                    liveWaveView.stop()
                     if (voiceHintText.text == "Listening…") voiceHintText.text = "Tap to speak"
                 }
             },
         )
         voiceManager.init()
 
-        if (!grokClient.isConfigured()) {
-            statusText.text = "⚠️ Grok API key not set. Edit local.properties → GROK_API_KEY"
-            sendButton.isEnabled = false
-            micButton.isEnabled = false
-        } else {
-            statusText.text = "Ready."
-            sendButton.isEnabled = true
-            ensureMicPermission()
-        }
+        updateProviderStatus()
+        sendButton.isEnabled = false
+        ensureMicPermission()
     }
 
     // ── View setup ───────────────────────────────────────────────────────────
@@ -157,12 +186,13 @@ class MainActivity : AppCompatActivity() {
     private fun bindViews() {
         statusText = findViewById(R.id.statusText)
         chatRecyclerView = findViewById(R.id.chatRecyclerView)
-        waveformView = findViewById(R.id.waveformView)
+        liveWaveView = findViewById(R.id.liveWaveView)
         voiceCaptionText = findViewById(R.id.voiceCaptionText)
 
         modeToggle = findViewById(R.id.modeToggle)
         textModeButton = findViewById(R.id.textModeButton)
         voiceModeButton = findViewById(R.id.voiceModeButton)
+        settingsButton = findViewById(R.id.settingsButton)
 
         textInputBar = findViewById(R.id.textInputBar)
         inputBox = findViewById(R.id.inputBox)
@@ -178,6 +208,16 @@ class MainActivity : AppCompatActivity() {
             stackFromEnd = true
         }
         chatRecyclerView.adapter = chatAdapter
+        chatAdapter.registerAdapterDataObserver(object : RecyclerView.AdapterDataObserver() {
+            override fun onChanged() = updateChatEmptyState()
+            override fun onItemRangeInserted(positionStart: Int, itemCount: Int) = updateChatEmptyState()
+            override fun onItemRangeRemoved(positionStart: Int, itemCount: Int) = updateChatEmptyState()
+        })
+        updateChatEmptyState()
+    }
+
+    private fun updateChatEmptyState() {
+        voiceHintText.visibility = if (isVoiceMode && chatAdapter.itemCount == 0) View.VISIBLE else View.GONE
     }
 
     private fun setupModeToggle() {
@@ -191,16 +231,35 @@ class MainActivity : AppCompatActivity() {
             if (!isChecked) return@addOnButtonCheckedListener
             applyModeVisibility(isVoiceMode = checkedId == R.id.voiceModeButton)
         }
+        settingsButton.setOnClickListener {
+            settingsLauncher.launch(Intent(this, AiSettingsActivity::class.java))
+        }
+    }
+
+    private fun createClient(settings: AiSettings) = GrokClient(
+        provider = settings.provider,
+        apiKey = settings.apiKey,
+        model = settings.model,
+        baseUrl = settings.baseUrl,
+    )
+
+    private fun updateProviderStatus() {
+        statusText.text = if (grokClient.isConfigured()) {
+            "${aiSettings.provider.label} ready."
+        } else {
+            "Add ${aiSettings.provider.label} API key in settings"
+        }
     }
 
     private fun applyModeVisibility(isVoiceMode: Boolean) {
         this.isVoiceMode = isVoiceMode
         textInputBar.visibility = if (isVoiceMode) View.GONE else View.VISIBLE
         voiceInputBar.visibility = if (isVoiceMode) View.VISIBLE else View.GONE
+        updateChatEmptyState()
         if (!isVoiceMode) {
             voiceManager.stopListening()
             voiceManager.stopSpeaking()
-            waveformView.stop()
+            liveWaveView.stop()
         }
     }
 
@@ -209,7 +268,7 @@ class MainActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: android.text.Editable?) {
-                sendButton.isEnabled = grokClient.isConfigured() && !s.isNullOrBlank()
+                sendButton.isEnabled = !s.isNullOrBlank()
             }
         })
         sendButton.setOnClickListener {
@@ -227,7 +286,7 @@ class MainActivity : AppCompatActivity() {
                 voiceManager.stopListening()
             } else {
                 voiceManager.stopSpeaking()
-                waveformView.stop()
+                liveWaveView.stop()
                 voiceManager.startListening()
             }
         }
@@ -252,12 +311,43 @@ class MainActivity : AppCompatActivity() {
      * to normal AI inference.
      */
     private fun processUserInput(prompt: String) {
+        if (CommandHandler.isCurrentLocationRequest(prompt)) {
+            processCurrentLocationRequest(prompt)
+            return
+        }
+        if (grokClient.isConfigured()) {
+            classifyUnmatchedPrompt(prompt)
+            return
+        }
+        processLocalCommandOrChat(prompt)
+    }
+
+    private fun processCurrentLocationRequest(prompt: String) {
+        if (!hasLocationPermission()) {
+            pendingLocationPrompt = prompt
+            locationCommandPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                )
+            )
+            return
+        }
+
+        val command = CommandHandler.handle(this, prompt) { locationResult ->
+            runOnUiThread { respondLocally(locationResult) }
+        } ?: return
+        handleLocalCommand(prompt, command)
+    }
+
+    private fun processLocalCommandOrChat(prompt: String, classifyUnknown: Boolean = true) {
         val callTarget = ContactCallHandler.extractCallTarget(prompt)
         if (callTarget != null) {
             if (hasCallPermissions()) {
-                handleCallCommand(prompt)
+                handleCallCommand(prompt, callTarget)
             } else {
                 pendingCallPrompt = prompt
+                pendingCallTarget = callTarget
                 callPermissionLauncher.launch(
                     arrayOf(
                         Manifest.permission.READ_CONTACTS,
@@ -308,10 +398,80 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
-        chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
-        runGrokInference(prompt)
+        if (classifyUnknown) {
+            classifyUnmatchedPrompt(prompt)
+        } else {
+            chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
+            chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+            runGrokInference(prompt)
+        }
     }
+
+    private fun classifyUnmatchedPrompt(prompt: String) {
+        if (!grokClient.isConfigured()) {
+            chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
+            chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+            runGrokInference(prompt)
+            return
+        }
+
+        statusText.text = "Understanding…"
+        lifecycleScope.launch {
+            val intent = runCatching {
+                grokClient.classifyDeviceCommand(prompt)
+            }.getOrNull()
+
+            if (intent?.action == "CALL_CONTACT") {
+                if (hasCallPermissions()) {
+                    handleCallCommand(prompt, intent.argument)
+                } else {
+                    pendingCallPrompt = prompt
+                    pendingCallTarget = intent.argument
+                    callPermissionLauncher.launch(
+                        arrayOf(
+                            Manifest.permission.READ_CONTACTS,
+                            Manifest.permission.CALL_PHONE
+                        )
+                    )
+                }
+                return@launch
+            }
+
+            if (intent?.action == "LOCATION" && !hasLocationPermission()) {
+                pendingLocationPrompt = prompt
+                locationCommandPermissionLauncher.launch(
+                    arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                )
+                return@launch
+            }
+
+            if (intent != null) {
+                val command = CommandHandler.handle(this@MainActivity, intent.toCommandText()) { result ->
+                    runOnUiThread { respondLocally(result) }
+                }
+                if (command != null) {
+                    handleLocalCommand(prompt, command)
+                    statusText.text = "${aiSettings.provider.label} ready."
+                    return@launch
+                }
+            }
+
+            processLocalCommandOrChat(prompt, classifyUnknown = false)
+        }
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED ||
+        ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
     private fun handleLocalCommand(prompt: String, command: CommandResult) {
         chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
@@ -427,9 +587,8 @@ class MainActivity : AppCompatActivity() {
         return contactsGranted && callGranted
     }
 
-    /** Looks up the contact and places the call — no Grok API call involved. */
-    private fun handleCallCommand(prompt: String) {
-        val target = ContactCallHandler.extractCallTarget(prompt) ?: return
+    /** Looks up the contact and places the call — no API call involved. */
+    private fun handleCallCommand(prompt: String, target: String) {
 
         chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
 
@@ -450,6 +609,18 @@ class MainActivity : AppCompatActivity() {
     // ── Grok inference ───────────────────────────────────────────────────────
 
     private fun runGrokInference(prompt: String, resultPrefix: String = "") {
+        if (!grokClient.isConfigured()) {
+            chatAdapter.addMessage(
+                ChatMessage(
+                    "Add an API key for ${aiSettings.provider.label} in settings to use AI chat. Local commands like time and battery still work.",
+                    isUser = false
+                )
+            )
+            chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+            updateProviderStatus()
+            return
+        }
+
         sendButton.isEnabled = false
         micButton.isEnabled = false
         statusText.text = "Thinking…"
@@ -491,7 +662,7 @@ class MainActivity : AppCompatActivity() {
                     statusText.text = "⚠️ No response"
                     chatAdapter.updateMessage(
                         aiIndex,
-                        "No response received from Grok API.\n\nPossible reasons:\n• API key missing or invalid\n• Network issue\n• Model quota exceeded",
+                        "No response received from API.\n\nPossible reasons:\n• API key missing or invalid\n• Network issue\n• Model quota exceeded",
                         isStreaming = false
                     )
                 }

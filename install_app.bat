@@ -3,7 +3,7 @@ set "ANDROID_HOME=C:\Users\riyas\OneDrive\Desktop\ANDROID\sdk"
 set "GRADLE_HOME=C:\Gradle\gradle-9.7.0"
 set "PATH=%JAVA_HOME%\bin;%ANDROID_HOME%\platform-tools;%ANDROID_HOME%\cmdline-tools\latest\bin;%GRADLE_HOME%\bin;%PATH%"
 
-cd /d D:\Projects\Spidey AI
+cd /d C:\Users\riyas\OneDrive\Desktop\Spidey 2.0\Spidey-AI>
 
 gradle clean assembleDebug
 

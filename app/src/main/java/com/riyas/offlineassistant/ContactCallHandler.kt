@@ -18,6 +18,9 @@ object ContactCallHandler {
     private val FILLER_WORDS = Regex(
         """(?i)\b(please|now|right\s+now|for\s+me|quickly|asap)\b"""
     )
+    private val CALL_OPTION_SUFFIX = Regex(
+        """(?i)\s+(?:(?:put|set|switch|turn)\s+(?:it\s+)?(?:on\s+)?(?:the\s+)?(?:speaker|loudspeaker|speakerphone|hands[- ]free)|(?:on|using|through)\s+(?:the\s+)?(?:speaker|loudspeaker|speakerphone|hands[- ]free)|(?:speaker|loudspeaker|speakerphone|hands[- ]free)(?:\s+mode)?)\s*[.!?,]*$"""
+    )
 
     // All recognized "call" prefix/phrasing patterns. Add more here as needed —
     // this is the single place that defines every trigger keyword.
@@ -43,7 +46,7 @@ object ContactCallHandler {
         val text = prompt.trim()
         for (pattern in CALL_PATTERNS) {
             val match = pattern.find(text) ?: continue
-            var name = match.groupValues[1].trim()
+            var name = match.groupValues[1].replace(CALL_OPTION_SUFFIX, "").trim()
             name = name.replace(FILLER_WORDS, "").trim()
             name = name.trim('.', '!', '?', ',', ' ')
             if (name.isNotBlank()) return name
@@ -89,6 +92,7 @@ object ContactCallHandler {
         }
 
         if (candidates.isEmpty()) return null
+        val uniqueCandidates = candidates.distinctBy { normalizeName(it.name) to normalizePhone(it.number) }
 
         // Normalize user's requested name
         val target = normalizeName(name)
@@ -98,16 +102,14 @@ object ContactCallHandler {
         // ---------------------------------------------------------
         // 1. Exact normalized full-name match
         // ---------------------------------------------------------
-        candidates.firstOrNull {
-            normalizeName(it.name) == target
-        }?.let {
-            return it
-        }
+        val exactNameMatches = uniqueCandidates.filter { normalizeName(it.name) == target }
+        if (exactNameMatches.size == 1) return exactNameMatches.first()
+        if (exactNameMatches.size > 1) return null
 
         // ---------------------------------------------------------
         // 2. Exact normalized single-word match
         // ---------------------------------------------------------
-        val exactWordMatches = candidates.filter { candidate ->
+        val exactWordMatches = uniqueCandidates.filter { candidate ->
 
             val words = normalizeName(candidate.name)
                 .split(Regex("\\s+"))
@@ -127,105 +129,7 @@ object ContactCallHandler {
             return null
         }
 
-        // ---------------------------------------------------------
-        // 3. Contact name STARTS WITH target
-        // Example:
-        // target = "amma"
-        // contact = "amma mom"
-        // ---------------------------------------------------------
-        candidates.firstOrNull {
-
-            val normalizedContact = normalizeName(it.name)
-
-            normalizedContact == target ||
-                    normalizedContact.startsWith("$target ")
-        }?.let {
-            return it
-        }
-
-        // ---------------------------------------------------------
-        // 4. Contact name CONTAINS target
-        // Example:
-        // target = "amma"
-        // contact = "my amma"
-        // ---------------------------------------------------------
-        candidates.firstOrNull {
-
-            val normalizedContact = normalizeName(it.name)
-
-            normalizedContact.contains(target)
-        }?.let {
-            return it
-        }
-
-        // ---------------------------------------------------------
-        // 5. Reverse contains
-        // Example:
-        // target = "amma mom"
-        // contact = "amma"
-        // ---------------------------------------------------------
-        candidates.firstOrNull {
-
-            val normalizedContact = normalizeName(it.name)
-
-            target.contains(normalizedContact)
-        }?.let {
-            return it
-        }
-
-        // ---------------------------------------------------------
-        // 6. Fuzzy matching
-        // ---------------------------------------------------------
-        var best: ContactMatch? = null
-        var bestScore = 0.0
-
-        for (candidate in candidates) {
-
-            val normalizedContact = normalizeName(candidate.name)
-
-            if (normalizedContact.isBlank()) continue
-
-            val words = normalizedContact.split(Regex("\\s+"))
-
-            val score = (words + normalizedContact).maxOf {
-                similarity(target, it)
-            }
-
-            if (score > bestScore) {
-                bestScore = score
-                best = candidate
-            }
-        }
-
-        return if (bestScore >= 0.72) {
-            best
-        } else {
-            null
-        }
-    }
-
-    /** Similarity in [0.0, 1.0] — 1.0 means identical, based on edit distance. */
-    private fun similarity(a: String, b: String): Double {
-        val maxLen = maxOf(a.length, b.length)
-        if (maxLen == 0) return 1.0
-        return 1.0 - levenshtein(a, b).toDouble() / maxLen
-    }
-
-    private fun levenshtein(a: String, b: String): Int {
-        val dp = Array(a.length + 1) { IntArray(b.length + 1) }
-        for (i in 0..a.length) dp[i][0] = i
-        for (j in 0..b.length) dp[0][j] = j
-        for (i in 1..a.length) {
-            for (j in 1..b.length) {
-                val cost = if (a[i - 1] == b[j - 1]) 0 else 1
-                dp[i][j] = minOf(
-                    dp[i - 1][j] + 1,      // deletion
-                    dp[i][j - 1] + 1,      // insertion
-                    dp[i - 1][j - 1] + cost // substitution
-                )
-            }
-        }
-        return dp[a.length][b.length]
+        return null
     }
 
     private fun normalizeName(value: String): String {
@@ -235,6 +139,8 @@ object ContactCallHandler {
             .replace(Regex("\\s+"), " ")
             .trim()
     }
+
+            private fun normalizePhone(value: String): String = value.filter { it.isDigit() }
 
     /** Places a direct phone call to [number] (requires CALL_PHONE permission granted). */
     fun placeCall(context: Context, number: String) {

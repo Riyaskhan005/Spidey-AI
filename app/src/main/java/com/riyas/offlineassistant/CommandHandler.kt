@@ -65,11 +65,15 @@ object CommandHandler {
     )
 
     private val LOCATION_PATTERNS = listOf(
-        Regex("""(?i)where am i"""),
-        Regex("""(?i)what'?s my (?:current )?location"""),
-        Regex("""(?i)my location"""),
-        Regex("""(?i)current location"""),
+        Regex("""(?i)\bwhere\s+(?:am\s+i|i\s+am)\b"""),
+        Regex("""(?i)\bwhat'?s\s+my\s+(?:current\s+)?location\b"""),
+        Regex("""(?i)\bwhat\s+is\s+my\s+(?:current\s+)?location\b"""),
+        Regex("""(?i)\bmy\s+(?:current\s+)?location\b"""),
+        Regex("""(?i)\bcurrent\s+location\b"""),
     )
+
+    fun isCurrentLocationRequest(prompt: String): Boolean =
+        LOCATION_PATTERNS.any { it.containsMatchIn(prompt.trim()) }
 
     private val TIME_PATTERNS = listOf(
     Regex("""(?i)^what(?:'s| is) the time\??$"""),

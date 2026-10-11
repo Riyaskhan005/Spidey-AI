@@ -24,6 +24,7 @@ class VoiceManager(
     private val onSpeakStart: () -> Unit,
     private val onSpeakDone: () -> Unit,
     private val onListenStart: () -> Unit,
+    private val onListenLevel: (Float) -> Unit,
     private val onListenResult: (String) -> Unit,
     private val onListenError: (String) -> Unit,
     private val onListenEnd: () -> Unit,
@@ -110,7 +111,7 @@ class VoiceManager(
             setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) = onListenStart()
                 override fun onBeginningOfSpeech() {}
-                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onRmsChanged(rmsdB: Float) = onListenLevel(rmsdB)
                 override fun onBufferReceived(buffer: ByteArray?) {}
                 override fun onEndOfSpeech() = onListenEnd()
                 override fun onError(error: Int) {

@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="horizontal"
+    android:gravity="center_vertical"
     android:paddingHorizontal="12dp"
     android:paddingVertical="6dp">
 
@@ -12,13 +13,19 @@
         android:layout_weight="1" />
 
     <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="6dp"
+        android:text="You:"
+        android:textColor="@color/text_primary"
+        android:textStyle="bold" />
+
+    <TextView
         android:id="@+id/messageText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:maxWidth="280dp"
-        android:background="@drawable/bubble_user"
-        android:paddingHorizontal="16dp"
-        android:paddingVertical="10dp"
+        android:paddingVertical="3dp"
         android:textColor="@color/text_primary"
         android:textSize="15sp"
         android:textIsSelectable="true" />

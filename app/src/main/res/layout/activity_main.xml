@@ -3,7 +3,16 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@drawable/bg_main">
+    android:background="@drawable/bg_live_screen">
+
+    <com.riyas.SpideyAssistant.LiveWaveView
+        android:id="@+id/liveWaveView"
+        android:layout_width="match_parent"
+        android:layout_height="240dp"
+        android:layout_gravity="bottom"
+        android:importantForAccessibility="no"
+        android:clickable="false"
+        android:focusable="false" />
 
     <!-- Decorative web corner, purely cosmetic -->
     <ImageView
@@ -12,6 +21,7 @@
         android:layout_gravity="top|end"
         android:alpha="0.6"
         android:src="@drawable/web_corner"
+        android:visibility="gone"
         android:contentDescription="@null" />
 
     <LinearLayout
@@ -22,13 +32,11 @@
         <!-- Header -->
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:background="@drawable/bg_header"
+            android:layout_height="64dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
             android:paddingHorizontal="18dp"
-            android:paddingTop="18dp"
-            android:paddingBottom="14dp">
+            android:paddingTop="8dp">
 
             <ImageView
                 android:layout_width="30dp"
@@ -46,7 +54,7 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="SPIDEY"
+                    android:text="LIVE"
                     android:textColor="@color/spidey_white"
                     android:textSize="20sp"
                     android:textStyle="bold"
@@ -61,7 +69,6 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
-            <!-- Voice / Text mode toggle (pill style, single instance) -->
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
@@ -76,48 +83,72 @@
                     app:singleSelection="true"
                     app:selectionRequired="true">
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/voiceModeButton"
                         style="@style/ToggleButtonSpidey"
-                        android:layout_width="wrap_content"
+                        android:layout_width="38dp"
                         android:layout_height="match_parent"
                         android:minWidth="0dp"
-                        android:paddingHorizontal="16dp"
-                        android:text="Voice"
+                        android:padding="6dp"
+                        android:contentDescription="Voice mode"
+                        android:tooltipText="Voice mode"
+                        app:icon="@drawable/ic_mic"
+                        app:iconTint="@color/toggle_text_color"
                         android:checked="true" />
 
-                    <Button
+                    <com.google.android.material.button.MaterialButton
                         android:id="@+id/textModeButton"
                         style="@style/ToggleButtonSpidey"
-                        android:layout_width="wrap_content"
+                        android:layout_width="38dp"
                         android:layout_height="match_parent"
                         android:minWidth="0dp"
-                        android:paddingHorizontal="16dp"
-                        android:text="Text" />
+                        android:padding="6dp"
+                        android:contentDescription="Text mode"
+                        android:tooltipText="Text mode"
+                        app:icon="@drawable/ic_keyboard"
+                        app:iconTint="@color/toggle_text_color" />
                 </com.google.android.material.button.MaterialButtonToggleGroup>
 
             </LinearLayout>
 
+            <ImageButton
+                android:id="@+id/settingsButton"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="8dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:padding="8dp"
+                android:src="@drawable/ic_settings"
+                android:contentDescription="AI provider settings"
+                android:tooltipText="AI provider settings" />
+
         </LinearLayout>
 
-        <!-- Chat list -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/chatRecyclerView"
+        <FrameLayout
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
-            android:clipToPadding="false"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp" />
+            android:minHeight="0dp">
 
-        <!-- Waveform, shown only while Spidey is speaking or listening -->
-        <com.riyas.SpideyAssistant.WaveformView
-            android:id="@+id/waveformView"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:layout_marginHorizontal="20dp"
-            android:layout_marginBottom="4dp"
-            android:visibility="gone" />
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/chatRecyclerView"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:clipToPadding="false"
+                android:paddingHorizontal="18dp"
+                android:paddingTop="12dp"
+                android:paddingBottom="16dp" />
+
+            <TextView
+                android:id="@+id/voiceHintText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:gravity="center"
+                android:text="Tap or talk to interrupt Spidey"
+                android:textColor="@color/text_secondary"
+                android:textSize="16sp" />
+        </FrameLayout>
 
         <TextView
             android:id="@+id/voiceCaptionText"
@@ -136,48 +167,56 @@
             android:id="@+id/textInputBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginHorizontal="14dp"
+            android:layout_marginBottom="14dp"
+            android:background="@drawable/bg_composer"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:paddingHorizontal="14dp"
-            android:paddingBottom="14dp"
-            android:paddingTop="4dp"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="6dp"
             android:visibility="gone">
 
             <EditText
                 android:id="@+id/inputBox"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_weight="1"
-                android:background="@drawable/bg_input_field"
-                android:hint="Ask Spidey something..."
+                android:background="@android:color/transparent"
+                android:gravity="center_vertical"
+                android:hint="Message Spidey..."
                 android:textColorHint="@color/text_secondary"
                 android:textColor="@color/text_primary"
                 android:inputType="textMultiLine"
+                android:imeOptions="actionSend"
                 android:maxLines="4"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="10dp" />
+                android:minHeight="48dp"
+                android:paddingHorizontal="10dp"
+                android:paddingVertical="8dp"
+                android:textSize="16sp" />
 
             <ImageButton
                 android:id="@+id/sendButton"
-                android:layout_width="46dp"
-                android:layout_height="46dp"
-                android:layout_marginStart="10dp"
-                android:background="@drawable/circle_mic_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="4dp"
+                android:background="@drawable/bg_send_button"
                 android:src="@drawable/ic_send"
-                android:padding="12dp"
+                android:padding="11dp"
+                app:tint="@color/spidey_white"
                 android:enabled="false"
                 android:contentDescription="Send" />
 
         </LinearLayout>
 
-        <!-- VOICE MODE input bar -->
+        <!-- VOICE MODE controls -->
         <LinearLayout
             android:id="@+id/voiceInputBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
+            android:orientation="horizontal"
             android:gravity="center"
-            android:paddingBottom="20dp"
+            android:paddingHorizontal="24dp"
+            android:paddingBottom="18dp"
             android:paddingTop="4dp"
             android:visibility="visible">
 
@@ -185,20 +224,11 @@
                 android:id="@+id/micButton"
                 android:layout_width="72dp"
                 android:layout_height="72dp"
-                android:background="@drawable/circle_mic_button"
+                android:background="@drawable/bg_live_mic_button"
                 android:src="@drawable/ic_mic"
                 android:padding="20dp"
                 android:contentDescription="Tap to speak"
                 android:enabled="false" />
-
-            <TextView
-                android:id="@+id/voiceHintText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Tap to speak"
-                android:textColor="@color/text_secondary"
-                android:textSize="12sp" />
 
         </LinearLayout>
 

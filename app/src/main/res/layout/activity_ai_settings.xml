@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/bg_main"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp">
+
+        <ImageButton
+            android:id="@+id/backButton"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Back"
+            android:padding="10dp"
+            android:src="@drawable/ic_arrow_back" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:text="AI settings"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/spidey_web_grey" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingHorizontal="22dp"
+            android:paddingTop="24dp"
+            android:paddingBottom="20dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="PROVIDER"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <RadioGroup
+                android:id="@+id/providerGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="vertical">
+
+                <RadioButton
+                    android:id="@+id/providerGemini"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:buttonTint="@color/spidey_red"
+                    android:text="Gemini"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/providerGrok"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:buttonTint="@color/spidey_red"
+                    android:text="Grok"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/providerGroq"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:buttonTint="@color/spidey_red"
+                    android:text="Groq"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/providerOpenAi"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:buttonTint="@color/spidey_red"
+                    android:text="OpenAI"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
+            </RadioGroup>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:hint="Model name"
+                app:boxBackgroundMode="outline"
+                app:boxStrokeColor="@color/spidey_red"
+                app:hintTextColor="@color/text_secondary">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/modelInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="text"
+                    android:singleLine="true"
+                    android:textColor="@color/text_primary"
+                    android:imeOptions="actionNext" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:hint="API key"
+                app:boxBackgroundMode="outline"
+                app:boxStrokeColor="@color/spidey_red"
+                app:hintTextColor="@color/text_secondary"
+                app:endIconMode="password_toggle">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/apiKeyInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:inputType="textPassword"
+                    android:singleLine="true"
+                    android:textColor="@color/text_primary"
+                    android:imeOptions="actionDone" />
+            </com.google.android.material.textfield.TextInputLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/saveButton"
+        android:layout_width="match_parent"
+        android:layout_height="54dp"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="20dp"
+        android:text="Save settings"
+        android:textAllCaps="false"
+        android:textColor="@color/spidey_white"
+        android:textSize="16sp"
+        app:backgroundTint="@color/spidey_red"
+        app:cornerRadius="16dp" />
+
+</LinearLayout>
