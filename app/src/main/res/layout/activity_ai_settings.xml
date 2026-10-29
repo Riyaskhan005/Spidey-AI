@@ -101,46 +101,238 @@
                     android:text="OpenAI"
                     android:textColor="@color/text_primary"
                     android:textSize="16sp" />
+
+                <RadioButton
+                    android:id="@+id/providerOffline"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:buttonTint="@color/spidey_red"
+                    android:text="Offline model"
+                    android:textColor="@color/text_primary"
+                    android:textSize="16sp" />
             </RadioGroup>
 
-            <com.google.android.material.textfield.TextInputLayout
+            <LinearLayout
+                android:id="@+id/offlineModelControls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="24dp"
-                android:hint="Model name"
-                app:boxBackgroundMode="outline"
-                app:boxStrokeColor="@color/spidey_red"
-                app:hintTextColor="@color/text_secondary">
+                android:layout_marginTop="12dp"
+                android:orientation="vertical"
+                android:visibility="gone">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/modelInput"
+                <TextView
+                    android:id="@+id/offlineModelLabel"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="text"
-                    android:singleLine="true"
-                    android:textColor="@color/text_primary"
-                    android:imeOptions="actionNext" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    android:text="No offline model selected"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp" />
 
-            <com.google.android.material.textfield.TextInputLayout
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/browseOfflineModelButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:text="Browse offline model (.litertlm)"
+                    android:textAllCaps="false"
+                    app:backgroundTint="@color/spidey_red"
+                    app:cornerRadius="12dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="22dp"
+                    android:text="OFFLINE MODEL PERFORMANCE"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <RadioGroup
+                    android:id="@+id/offlineBackendGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:orientation="horizontal">
+
+                    <RadioButton
+                        android:id="@+id/backendCpu"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:buttonTint="@color/spidey_red"
+                        android:checked="true"
+                        android:text="CPU"
+                        android:textColor="@color/text_primary" />
+
+                    <RadioButton
+                        android:id="@+id/backendGpu"
+                        android:layout_width="wrap_content"
+                        android:layout_height="48dp"
+                        android:layout_marginStart="24dp"
+                        android:buttonTint="@color/spidey_red"
+                        android:text="GPU"
+                        android:textColor="@color/text_primary" />
+                </RadioGroup>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="Temperature (0–2)"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/spidey_red"
+                    app:hintTextColor="@color/text_secondary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/temperatureInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Top K (1–256)"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/spidey_red"
+                    app:hintTextColor="@color/text_secondary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/topKInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Top P (0–1)"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/spidey_red"
+                    app:hintTextColor="@color/text_secondary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/topPInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="numberDecimal"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Context token budget (512–4096)"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/spidey_red"
+                    app:hintTextColor="@color/text_secondary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/contextTokensInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:hint="Max response tokens (1–1024)"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/spidey_red"
+                    app:hintTextColor="@color/text_secondary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/maxOutputTokensInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="number"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:text="Visual token budget per image"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="14sp" />
+
+                <Spinner
+                    android:id="@+id/visualTokenBudgetSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:spinnerMode="dropdown" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="GPU needs compatible device support. Visual budget applies only to Gemma 4 models that accept images."
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/remoteModelControls"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:hint="API key"
-                app:boxBackgroundMode="outline"
-                app:boxStrokeColor="@color/spidey_red"
-                app:hintTextColor="@color/text_secondary"
-                app:endIconMode="password_toggle">
+                android:orientation="vertical">
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/apiKeyInput"
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/modelInputLayout"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:inputType="textPassword"
-                    android:singleLine="true"
-                    android:textColor="@color/text_primary"
-                    android:imeOptions="actionDone" />
-            </com.google.android.material.textfield.TextInputLayout>
+                    android:layout_marginTop="24dp"
+                    android:hint="Model name"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/spidey_red"
+                    app:hintTextColor="@color/text_secondary">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/modelInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="text"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary"
+                        android:imeOptions="actionNext" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/apiKeyInputLayout"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="18dp"
+                    android:hint="API key"
+                    app:boxBackgroundMode="outline"
+                    app:boxStrokeColor="@color/spidey_red"
+                    app:hintTextColor="@color/text_secondary"
+                    app:endIconMode="password_toggle">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/apiKeyInput"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textPassword"
+                        android:singleLine="true"
+                        android:textColor="@color/text_primary"
+                        android:imeOptions="actionDone" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
 
             <com.google.android.material.textfield.TextInputLayout
                 android:layout_width="match_parent"
@@ -162,50 +354,46 @@
                     android:imeOptions="actionDone" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <com.google.android.material.textfield.TextInputLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="28dp"
-                android:hint="ElevenLabs API key"
-                app:boxBackgroundMode="outline"
-                app:boxStrokeColor="@color/spidey_red"
-                app:hintTextColor="@color/text_secondary"
-                app:endIconMode="password_toggle">
+                android:text="OFFLINE VOICE"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp"
+                android:textStyle="bold" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/elevenLabsApiKeyInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="textPassword"
-                    android:singleLine="true"
-                    android:textColor="@color/text_primary"
-                    android:imeOptions="actionNext" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <com.google.android.material.textfield.TextInputLayout
+            <TextView
+                android:id="@+id/kokoroModelLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                android:hint="ElevenLabs voice ID"
-                app:boxBackgroundMode="outline"
-                app:boxStrokeColor="@color/spidey_red"
-                app:hintTextColor="@color/text_secondary">
+                android:layout_marginTop="8dp"
+                android:text="Kokoro model: not selected"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
 
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/elevenLabsVoiceIdInput"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:inputType="text"
-                    android:singleLine="true"
-                    android:textColor="@color/text_primary"
-                    android:imeOptions="actionDone" />
-            </com.google.android.material.textfield.TextInputLayout>
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/browseKokoroModelButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="Browse Kokoro TTS model"
+                android:textAllCaps="false"
+                app:backgroundTint="@color/spidey_red"
+                app:cornerRadius="12dp" />
+
+            <Spinner
+                android:id="@+id/kokoroVoiceSpinner"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="8dp"
+                android:spinnerMode="dropdown" />
 
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Choose a male multilingual voice in ElevenLabs and paste its voice ID here for English and Tamil speech. Usage may consume your ElevenLabs credits."
+                android:layout_marginTop="6dp"
+                android:text="English uses Kokoro when its native runtime is installed; otherwise Android's offline voice is used. Tamil uses an installed offline Android voice."
                 android:textColor="@color/text_secondary"
                 android:textSize="12sp" />
         </LinearLayout>

@@ -3,6 +3,7 @@ package com.riyas.SpideyAssistant
 import android.content.Context
 import android.content.Intent
 import android.media.MediaPlayer
+import android.net.Uri
 import android.os.Bundle
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -12,15 +13,13 @@ import android.speech.tts.UtteranceProgressListener
 import android.speech.tts.Voice
 import androidx.lifecycle.LifecycleCoroutineScope
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
 
 /**
- * Wraps voice input (SpeechRecognizer) and voice output (TextToSpeech) behind
+ * Wraps voice input and offline voice output behind
  * a small callback-based API so MainActivity doesn't need to touch the
  * platform APIs directly.
  *
@@ -32,6 +31,7 @@ class VoiceManager(
     private val scope: LifecycleCoroutineScope,
     private val onSpeakStart: () -> Unit,
     private val onSpeakDone: () -> Unit,
+    private val onSpeakError: (String) -> Unit,
     private val onListenStart: () -> Unit,
     private val onListenLevel: (Float) -> Unit,
     private val onListenResult: (String) -> Unit,
@@ -44,58 +44,47 @@ class VoiceManager(
     private var speechSegments = emptyList<SpeechFormatter.SpeechSegment>()
     private var speechSegmentIndex = 0
     private var speechId = ""
-    private val elevenLabsClient = ElevenLabsClient()
-    private var elevenLabsApiKey = ""
-    private var elevenLabsVoiceId = "JBFqnCBsd6RMkjVDRZzb"
+    private val kokoroTtsRunner = KokoroTtsRunner(context)
+    private var kokoroModelUri: Uri? = null
+    private var kokoroVoice = "am_puck"
     private var speechJob: Job? = null
     private var mediaPlayer: MediaPlayer? = null
     private var audioFile: File? = null
     private var speechGeneration = 0
+    private var kokoroFallbackNotified = false
 
-    fun configureElevenLabs(apiKey: String, voiceId: String) {
-        elevenLabsApiKey = apiKey.trim()
-        elevenLabsVoiceId = voiceId.trim()
+    fun configureKokoro(modelUri: Uri?, voice: String) {
+        kokoroModelUri = modelUri
+        kokoroVoice = voice
     }
 
     fun init() {
         tts = TextToSpeech(context) { status ->
             ttsReady = status == TextToSpeech.SUCCESS
-            if (ttsReady) {
-                applyMaleVoice(Locale.forLanguageTag("en-IN"))
-            }
         }
         tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
             override fun onStart(utteranceId: String?) = onSpeakStart()
             override fun onDone(utteranceId: String?) {
-                if (utteranceId?.startsWith(speechId) != true) return
+                if (speechSegments.isEmpty() || utteranceId?.startsWith(speechId) != true) return
                 speechSegmentIndex++
                 if (speechSegmentIndex < speechSegments.size) {
                     speakNextSegment()
                 } else {
-                    speechSegments = emptyList()
-                    onSpeakDone()
+                    finishSpeech(speechGeneration)
                 }
             }
             @Suppress("OVERRIDE_DEPRECATION", "DEPRECATION")
             @Deprecated("Deprecated in Java")
             override fun onError(utteranceId: String?) {
-                if (utteranceId?.startsWith(speechId) == true) {
-                    speechSegments = emptyList()
-                    onSpeakDone()
+                if (speechSegments.isNotEmpty() && utteranceId?.startsWith(speechId) == true) {
+                    finishSpeech(speechGeneration, "The installed Tamil voice could not speak.")
                 }
             }
         })
     }
 
-    /**
-     * Picks a male-sounding voice from the TTS engine if one is available.
-     * Most engines (Google TTS included) encode gender in the voice name
-     * (e.g. "en-us-x-sfg#male_1-local"), since the Voice API itself has no
-     * dedicated gender field. Falls back to a lowered pitch on the default
-     * voice if the engine doesn't expose an explicit male option.
-     */
-    private fun applyMaleVoice(locale: Locale) {
-        val engine = tts ?: return
+    private fun applyLocalTamilVoice(): Boolean {
+        val engine = tts ?: return false
         val availableVoices: Set<Voice> = try {
             engine.voices ?: emptySet()
         } catch (e: Exception) {
@@ -107,23 +96,18 @@ class VoiceManager(
                 !voice.name.contains("female", ignoreCase = true)
 
         val selectedVoice = availableVoices
-            .filter { it.locale.language == locale.language }
+            .filter { it.locale.language == "ta" && !it.isNetworkConnectionRequired }
             .sortedWith(
                 compareByDescending<Voice> { isMale(it) }
-                    .thenByDescending { it.locale.country == locale.country }
                     .thenByDescending { it.quality }
-                    .thenBy { it.isNetworkConnectionRequired }
             )
             .firstOrNull()
 
-        if (selectedVoice != null) {
-            engine.voice = selectedVoice
-            engine.setPitch(if (isMale(selectedVoice)) 1.0f else 0.88f)
-        } else {
-            engine.language = locale
-            engine.setPitch(0.88f)
-        }
+        selectedVoice ?: return false
+        engine.voice = selectedVoice
+        engine.setPitch(if (isMale(selectedVoice)) 1.0f else 0.88f)
         engine.setSpeechRate(0.92f)
+        return true
     }
 
     fun speak(text: String, summarizeLong: Boolean = true) {
@@ -135,46 +119,111 @@ class VoiceManager(
         }
         if (spokenText.isBlank()) return
         stopSpeaking()
-        val generation = speechGeneration
-        if (elevenLabsApiKey.isNotBlank() && elevenLabsVoiceId.isNotBlank()) {
-            speechJob = scope.launch {
-                try {
-                    val audio = elevenLabsClient.synthesize(
-                        spokenText,
-                        elevenLabsApiKey,
-                        elevenLabsVoiceId,
-                    )
-                    if (generation == speechGeneration) playElevenLabsAudio(audio, generation, spokenText)
-                } catch (error: CancellationException) {
-                    throw error
-                } catch (_: Exception) {
-                    if (generation == speechGeneration) speakWithDeviceTts(spokenText)
-                }
-            }
-            return
-        }
-        speakWithDeviceTts(spokenText)
-    }
-
-    private fun speakWithDeviceTts(text: String) {
-        if (!ttsReady) {
-            onSpeakDone()
-            return
-        }
-        speechSegments = SpeechFormatter.splitByLanguage(text)
+        speechSegments = SpeechFormatter.splitByLanguage(spokenText)
         speechSegmentIndex = 0
         speechId = "spidey_${System.currentTimeMillis()}_"
+        if (speechSegments.isEmpty()) {
+            finishSpeech(speechGeneration)
+            return
+        }
         speakNextSegment()
     }
 
-    private suspend fun playElevenLabsAudio(audio: ByteArray, generation: Int, fallbackText: String) {
-        val file = withContext(Dispatchers.IO) {
-            File(context.cacheDir, "elevenlabs_$generation.mp3").apply { writeBytes(audio) }
-        }
-        if (generation != speechGeneration) {
-            file.delete()
+    private fun releaseAudioPlayer() {
+        mediaPlayer?.release()
+        mediaPlayer = null
+        audioFile?.delete()
+        audioFile = null
+    }
+
+    private fun speakNextSegment() {
+        val segment = speechSegments.getOrNull(speechSegmentIndex) ?: return
+        val generation = speechGeneration
+        if (segment.isTamil) {
+            if (!ttsReady) {
+                finishSpeech(generation, "An installed offline Tamil text-to-speech voice is required.")
+                return
+            }
+            if (!applyLocalTamilVoice()) {
+                finishSpeech(generation, "Install an offline Tamil text-to-speech voice to speak Tamil.")
+                return
+            }
+            val result = tts?.speak(
+                segment.text,
+                TextToSpeech.QUEUE_FLUSH,
+                null,
+                "$speechId$speechSegmentIndex",
+            ) ?: TextToSpeech.ERROR
+            if (result == TextToSpeech.ERROR) {
+                finishSpeech(generation, "The installed Tamil voice could not start speaking.")
+            }
             return
         }
+
+        if (!kokoroTtsRunner.isAvailable()) {
+            notifyKokoroFallback()
+            speakWithAndroidEnglish(segment.text, generation)
+            return
+        }
+
+        speechJob = scope.launch {
+            try {
+                val file = kokoroTtsRunner.synthesize(
+                    segment.text,
+                    generation,
+                    speechSegmentIndex,
+                    kokoroModelUri,
+                    kokoroVoice,
+                )
+                if (generation == speechGeneration) {
+                    playAudioFile(file, generation)
+                } else {
+                    file.delete()
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (generation == speechGeneration) {
+                    notifyKokoroFallback()
+                    speakWithAndroidEnglish(segment.text, generation)
+                }
+            }
+        }
+    }
+
+    private fun notifyKokoroFallback() {
+        if (kokoroFallbackNotified) return
+        kokoroFallbackNotified = true
+        onSpeakError("Kokoro runtime is missing; using the Android offline English voice.")
+    }
+
+    private fun speakWithAndroidEnglish(text: String, generation: Int) {
+        val engine = tts
+        if (!ttsReady || engine == null) {
+            finishSpeech(generation, "Android text-to-speech is not ready.")
+            return
+        }
+        val offlineVoice = engine.voices
+            ?.filter { it.locale.language == "en" && !it.isNetworkConnectionRequired }
+            ?.maxByOrNull { it.quality }
+        if (offlineVoice == null) {
+            finishSpeech(generation, "Install an offline English voice in Android text-to-speech settings.")
+            return
+        }
+        engine.voice = offlineVoice
+        engine.setSpeechRate(0.92f)
+        val result = engine.speak(
+            text,
+            TextToSpeech.QUEUE_FLUSH,
+            null,
+            "$speechId$speechSegmentIndex",
+        )
+        if (result == TextToSpeech.ERROR) {
+            finishSpeech(generation, "The installed offline English voice could not start speaking.")
+        }
+    }
+
+    private fun playAudioFile(file: File, generation: Int) {
         audioFile = file
         val player = MediaPlayer()
         mediaPlayer = player
@@ -189,40 +238,34 @@ class VoiceManager(
             player.setOnCompletionListener {
                 if (generation == speechGeneration) {
                     releaseAudioPlayer()
-                    onSpeakDone()
+                    speechSegmentIndex++
+                    if (speechSegmentIndex < speechSegments.size) {
+                        speakNextSegment()
+                    } else {
+                        finishSpeech(generation)
+                    }
                 }
             }
             player.setOnErrorListener { _, _, _ ->
                 if (generation == speechGeneration) {
-                    releaseAudioPlayer()
-                    speakWithDeviceTts(fallbackText)
+                    finishSpeech(generation, "Kokoro audio could not be played.")
                 }
                 true
             }
             player.prepareAsync()
-        } catch (_: Exception) {
-            releaseAudioPlayer()
-            speakWithDeviceTts(fallbackText)
+        } catch (error: Exception) {
+            finishSpeech(generation, "Kokoro audio could not be played: ${error.message ?: "unknown error"}")
         }
     }
 
-    private fun releaseAudioPlayer() {
-        mediaPlayer?.release()
-        mediaPlayer = null
-        audioFile?.delete()
-        audioFile = null
-    }
-
-    private fun speakNextSegment() {
-        val segment = speechSegments.getOrNull(speechSegmentIndex) ?: return
-        val locale = if (segment.isTamil) Locale.forLanguageTag("ta-IN") else Locale.forLanguageTag("en-IN")
-        applyMaleVoice(locale)
-        tts?.speak(
-            segment.text,
-            if (speechSegmentIndex == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD,
-            null,
-            "$speechId$speechSegmentIndex",
-        )
+    private fun finishSpeech(generation: Int, errorMessage: String? = null) {
+        if (generation != speechGeneration) return
+        releaseAudioPlayer()
+        speechSegments = emptyList()
+        speechSegmentIndex = 0
+        speechJob = null
+        if (errorMessage != null) onSpeakError(errorMessage)
+        onSpeakDone()
     }
 
     fun stopSpeaking() {
@@ -281,9 +324,11 @@ class VoiceManager(
     }
 
     fun destroy() {
+        speechJob?.cancel()
         tts?.stop()
         tts?.shutdown()
         recognizer?.destroy()
+        releaseAudioPlayer()
     }
 
     private fun describeError(error: Int): String = when (error) {

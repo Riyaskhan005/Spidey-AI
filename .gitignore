@@ -4,4 +4,8 @@ local.properties
 !.env.example
 
 .gradle/
+.kotlin/
 build/
+.tools/
+app/src/main/jniLibs/
+Local Models/

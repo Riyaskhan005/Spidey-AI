@@ -50,8 +50,14 @@ class GrokClient(
     private val gson = Gson()
 
     private val http = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
+        .connectTimeout(45, TimeUnit.SECONDS)
         .readTimeout(120, TimeUnit.SECONDS)
+    .retryOnConnectionFailure(true)
+    .build()
+
+    // Command detection must not hold up the chat on a slow network
+    private val classifyHttp = http.newBuilder()
+        .callTimeout(10, TimeUnit.SECONDS)
         .build()
 
     suspend fun classifyDeviceCommand(userMessage: String): DeviceCommandIntent? = withContext(Dispatchers.IO) {

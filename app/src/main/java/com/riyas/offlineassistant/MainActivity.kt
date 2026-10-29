@@ -1,6 +1,7 @@
 package com.riyas.SpideyAssistant
 
 import android.Manifest
+import android.content.ComponentCallbacks2
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
@@ -30,9 +31,10 @@ class MainActivity : AppCompatActivity() {
         if (result.resultCode == RESULT_OK) {
             aiSettings = aiSettingsStore.load()
             grokClient = createClient(aiSettings)
-            voiceManager.configureElevenLabs(
-                aiSettingsStore.loadElevenLabsApiKey(),
-                aiSettingsStore.loadElevenLabsVoiceId(),
+            offlineModelClient.close()
+            voiceManager.configureKokoro(
+                aiSettingsStore.loadKokoroModel(),
+                aiSettingsStore.loadKokoroVoice(),
             )
             grokHistory.clear()
             updateProviderStatus()
@@ -72,6 +74,7 @@ class MainActivity : AppCompatActivity() {
     private var voiceResumeJob: Job? = null
 
     private lateinit var voiceManager: VoiceManager
+    private lateinit var offlineModelClient: OfflineModelClient
 
     // Pending call-command prompt, held while we ask for Contacts/Call permission
     private var pendingCallPrompt: String? = null
@@ -138,6 +141,7 @@ class MainActivity : AppCompatActivity() {
         aiSettingsStore = AiSettingsStore(this)
         aiSettings = aiSettingsStore.load()
         grokClient = createClient(aiSettings)
+        offlineModelClient = OfflineModelClient(this)
         setupChatList()
         setupModeToggle()
         setupTextInput()
@@ -158,6 +162,11 @@ class MainActivity : AppCompatActivity() {
                         resumeListeningAfterSpeech = false
                         resumeVoiceListening()
                     }
+                }
+            },
+            onSpeakError = { message ->
+                runOnUiThread {
+                    Toast.makeText(this, message, Toast.LENGTH_LONG).show()
                 }
             },
             onListenStart = {
@@ -203,9 +212,9 @@ class MainActivity : AppCompatActivity() {
                 }
             },
         )
-        voiceManager.configureElevenLabs(
-            aiSettingsStore.loadElevenLabsApiKey(),
-            aiSettingsStore.loadElevenLabsVoiceId(),
+        voiceManager.configureKokoro(
+            aiSettingsStore.loadKokoroModel(),
+            aiSettingsStore.loadKokoroVoice(),
         )
         voiceManager.init()
 
@@ -277,7 +286,9 @@ class MainActivity : AppCompatActivity() {
     )
 
     private fun updateProviderStatus() {
-        statusText.text = if (grokClient.isConfigured()) {
+        statusText.text = if (aiSettings.provider == AiProvider.OFFLINE) {
+            if (aiSettings.modelUri.isNotBlank()) "Offline model ready." else "Select an offline model in settings"
+        } else if (grokClient.isConfigured()) {
             "${aiSettings.provider.label} ready."
         } else {
             "Add ${aiSettings.provider.label} API key in settings"
@@ -476,6 +487,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun classifyUnmatchedPrompt(prompt: String) {
+        if (aiSettings.provider == AiProvider.OFFLINE) {
+            chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
+            chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
+            runGrokInference(prompt)
+            return
+        }
         if (!grokClient.isConfigured()) {
             chatAdapter.addMessage(ChatMessage(prompt, isUser = true))
             chatRecyclerView.scrollToPosition(chatAdapter.itemCount - 1)
@@ -730,7 +747,7 @@ class MainActivity : AppCompatActivity() {
         resultPrefix: String = "",
         modelPrompt: String = prompt,
     ) {
-        if (!grokClient.isConfigured()) {
+        if (aiSettings.provider != AiProvider.OFFLINE && !grokClient.isConfigured()) {
             chatAdapter.addMessage(
                 ChatMessage(
                     "Add an API key for ${aiSettings.provider.label} in settings to use AI chat. Local commands like time and battery still work.",
@@ -757,7 +774,17 @@ class MainActivity : AppCompatActivity() {
             var hadError = false
 
             try {
-                grokClient.streamChat(modelPrompt, history = grokHistory.dropLast(1))
+                val response = if (aiSettings.provider == AiProvider.OFFLINE) {
+                    offlineModelClient.streamChat(
+                        modelUri = aiSettings.modelUri.takeIf(String::isNotBlank)?.let(android.net.Uri::parse),
+                        userMessage = modelPrompt,
+                        history = grokHistory.dropLast(1),
+                        settings = aiSettings,
+                    )
+                } else {
+                    grokClient.streamChat(modelPrompt, history = grokHistory.dropLast(1))
+                }
+                response
                     .collect { token ->
                         sb.append(token)
                         chatAdapter.updateMessage(aiIndex, resultPrefix + sb.toString(), isStreaming = true)
@@ -785,7 +812,7 @@ class MainActivity : AppCompatActivity() {
                     statusText.text = "⚠️ No response"
                     chatAdapter.updateMessage(
                         aiIndex,
-                        "No response received from API.\n\nPossible reasons:\n• API key missing or invalid\n• Network issue\n• Model quota exceeded",
+                        "No response received. Check that the selected model supports chat and is available on this device.",
                         isStreaming = false
                     )
                     resumeVoiceListening()
@@ -794,14 +821,34 @@ class MainActivity : AppCompatActivity() {
 
             if (hadError) resumeVoiceListening()
 
-            sendButton.isEnabled = grokClient.isConfigured()
-            micButton.isEnabled = grokClient.isConfigured() &&
+            sendButton.isEnabled = !inputBox.text.isNullOrBlank()
+            micButton.isEnabled = isAiProviderReady() &&
                 ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         }
     }
 
+    private fun isAiProviderReady(): Boolean =
+        if (aiSettings.provider == AiProvider.OFFLINE) {
+            aiSettings.modelUri.isNotBlank()
+        } else {
+            grokClient.isConfigured()
+        }
+
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        if (level >= ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW) {
+            offlineModelClient.releaseForMemoryPressure()
+        }
+    }
+
+    override fun onStop() {
+        offlineModelClient.releaseForMemoryPressure()
+        super.onStop()
+    }
+
     override fun onDestroy() {
         voiceManager.destroy()
+        offlineModelClient.close()
         super.onDestroy()
     }
 }

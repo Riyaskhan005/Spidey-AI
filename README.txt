@@ -1,6 +1,29 @@
 OFFLINE ASSISTANT - BUILD INSTRUCTIONS (Gemma 4 / LiteRT-LM edition)
 =====================================================================
 
+KOKORO VOICE OUTPUT
+-------------------
+- Choose a Kokoro `.litertlm` file and voice in AI settings. Puck
+  (`am_puck`) is selected by default. The model is copied to app storage
+  the first time speech is generated, not bundled in the APK.
+- Tamil speech uses an installed offline Android text-to-speech voice;
+  Kokoro does not include Tamil.
+- Normal Gradle build/install needs no extra batch file. Kokoro speech
+  requires `libkokoro_runner.so`; when that native runtime is absent, English
+  speech falls back to an installed offline Android voice.
+- To use an offline chat model, select **Offline model** in AI settings and
+  browse to a supported LiteRT-LM `.litertlm` chat model. Its first use
+  copies it into app storage.
+- Offline model settings include CPU/GPU backend selection, temperature,
+  Top K/Top P sampling, context and response token limits, and Gemma 4's
+  optional per-image visual token budget. CPU is the reliable default;
+  unsupported GPU devices will report an initialization error.
+- The offline engine stays loaded between chat turns while the main screen
+  remains active, and is released when the app is backgrounded or Android
+  reports memory pressure. A short rolling chat context plus the default
+  2048 context and 256 output token budgets reduce memory use. A cold model
+  load can still take time when returning to the app.
+
 IMPORTANT UPDATE: Gemma 4's recommended on-device runtime is Google's
 NEWER "LiteRT-LM" framework, not the older MediaPipe tasks-genai library.
 This project has been updated accordingly:
@@ -39,10 +62,9 @@ This project has been updated accordingly:
      internet, and may take a while.
    - Output APK: app\build\outputs\apk\debug\app-debug.apk
 
-6. PUSH THE MODEL to your phone (one-time, or whenever it changes):
-   - Connect Realme phone via USB, USB debugging enabled
-   - adb push "D:\Projects\gemma-4-E4B.litertlm" /data/local/tmp/gemma-4-E4B.litertlm
-   - This path MUST match modelPath in MainActivity.kt (already set to this)
+6. SELECT THE OFFLINE MODEL in the app:
+   - Open AI settings, select **Offline model**, and browse to a supported
+     `.litertlm` chat model. The app copies it into private storage on first use.
 
 7. INSTALL:
    - adb install app\build\outputs\apk\debug\app-debug.apk
@@ -52,11 +74,11 @@ This project has been updated accordingly:
 
 NOTES
 -----
-- No internet permission declared - fully offline once model is pushed.
-- Backend is set to CPU() by default for reliability on first run. Once
-  working, you can try Backend.GPU() in MainActivity.kt for better speed -
-  requires adding <uses-native-library> entries to AndroidManifest.xml
-  for libvndksupport.so and libOpenCL.so (see comments in code).
+- Offline model inference does not require network access. The app also
+  declares internet permission for configured online providers and search.
+- CPU is the default backend. Select GPU in offline AI settings to try
+  hardware acceleration; it requires compatible device support. Optional
+  OpenCL native libraries are declared in AndroidManifest.xml.
 - Model loading can take several seconds to ~10s on mid-range hardware -
   this is normal, matches Google's own documentation.
 - If OneDrive causes file-lock build issues, that's why the project

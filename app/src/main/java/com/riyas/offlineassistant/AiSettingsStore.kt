@@ -1,6 +1,7 @@
 package com.riyas.SpideyAssistant
 
 import android.content.Context
+import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -18,9 +19,15 @@ enum class AiProvider(
     GEMINI("Gemini", "gemini-2.5-flash", "https://generativelanguage.googleapis.com"),
     GROK("Grok", "grok-3-mini", "https://api.x.ai/v1"),
     GROQ("Groq", "openai/gpt-oss-120b", "https://api.groq.com/openai/v1"),
-    OPENAI("OpenAI", "gpt-4o-mini", "https://api.openai.com/v1");
+    OPENAI("OpenAI", "gpt-4o-mini", "https://api.openai.com/v1"),
+    OFFLINE("Offline model", "", "");
 
     val storageKey: String get() = name.lowercase()
+}
+
+enum class OfflineBackend {
+    CPU,
+    GPU,
 }
 
 data class AiSettings(
@@ -28,6 +35,14 @@ data class AiSettings(
     val apiKey: String,
     val model: String,
     val baseUrl: String,
+    val modelUri: String = "",
+    val offlineBackend: OfflineBackend = OfflineBackend.CPU,
+    val temperature: Double = 0.7,
+    val topK: Int = 40,
+    val topP: Double = 0.95,
+    val contextTokenBudget: Int = 2048,
+    val maxOutputTokens: Int = 256,
+    val visualTokenBudget: Int? = 70,
 )
 
 class AiSettingsStore(context: Context) {
@@ -39,21 +54,6 @@ class AiSettingsStore(context: Context) {
 
     fun saveTavilyApiKey(apiKey: String) {
         preferences.edit().putString("tavily_api_key", encrypt(apiKey.trim())).apply()
-    }
-
-    fun loadElevenLabsApiKey(): String =
-        preferences.getString("elevenlabs_api_key", null)?.let(::decrypt).orEmpty()
-
-    fun saveElevenLabsApiKey(apiKey: String) {
-        preferences.edit().putString("elevenlabs_api_key", encrypt(apiKey.trim())).apply()
-    }
-
-    fun loadElevenLabsVoiceId(): String =
-        preferences.getString("elevenlabs_voice_id", "JBFqnCBsd6RMkjVDRZzb")
-            ?: "JBFqnCBsd6RMkjVDRZzb"
-
-    fun saveElevenLabsVoiceId(voiceId: String) {
-        preferences.edit().putString("elevenlabs_voice_id", voiceId.trim()).apply()
     }
 
     fun load(): AiSettings {
@@ -71,13 +71,41 @@ class AiSettingsStore(context: Context) {
             provider == AiProvider.GROQ -> BuildConfig.GROK_API_KEY
             else -> ""
         }
+        val savedContextBudget = preferences.getInt("offline_context_tokens", 2048)
+        val savedOutputBudget = preferences.getInt("offline_max_output_tokens", 256)
+        val usedPreviousDefaultBudgets = savedContextBudget == 4096 && savedOutputBudget == 512
         return AiSettings(
             provider = provider,
             apiKey = key,
             model = preferences.getString("model_$suffix", provider.defaultModel) ?: provider.defaultModel,
             baseUrl = preferences.getString("base_url_$suffix", provider.defaultBaseUrl) ?: provider.defaultBaseUrl,
+            modelUri = preferences.getString("offline_model_uri", "").orEmpty(),
+            offlineBackend = runCatching {
+                OfflineBackend.valueOf(preferences.getString("offline_backend", OfflineBackend.CPU.name)!!)
+            }.getOrDefault(OfflineBackend.CPU),
+            temperature = preferences.getFloat("offline_temperature", 0.7f).toDouble(),
+            topK = preferences.getInt("offline_top_k", 40),
+            topP = preferences.getFloat("offline_top_p", 0.95f).toDouble(),
+            contextTokenBudget = if (usedPreviousDefaultBudgets) 2048 else savedContextBudget,
+            maxOutputTokens = if (usedPreviousDefaultBudgets) 256 else savedOutputBudget,
+            visualTokenBudget = preferences.getInt("offline_visual_token_budget", 70)
+                .takeIf { it > 0 },
         )
     }
+
+    fun saveKokoroModel(uri: Uri) {
+        preferences.edit().putString("kokoro_model_uri", uri.toString()).apply()
+    }
+
+    fun loadKokoroModel(): Uri? =
+        preferences.getString("kokoro_model_uri", null)?.let(Uri::parse)
+
+    fun saveKokoroVoice(voice: String) {
+        preferences.edit().putString("kokoro_voice", voice).apply()
+    }
+
+    fun loadKokoroVoice(): String =
+        preferences.getString("kokoro_voice", "am_puck") ?: "am_puck"
 
     fun save(settings: AiSettings, selectProvider: Boolean = true) {
         val suffix = settings.provider.storageKey
@@ -85,7 +113,17 @@ class AiSettingsStore(context: Context) {
             .putString("api_key_$suffix", encrypt(settings.apiKey.trim()))
             .putString("model_$suffix", settings.model.trim())
             .putString("base_url_$suffix", settings.baseUrl.trim().trimEnd('/'))
+            .putString("offline_model_uri", settings.modelUri)
             .apply {
+                if (settings.provider == AiProvider.OFFLINE) {
+                    putString("offline_backend", settings.offlineBackend.name)
+                    putFloat("offline_temperature", settings.temperature.toFloat())
+                    putInt("offline_top_k", settings.topK)
+                    putFloat("offline_top_p", settings.topP.toFloat())
+                    putInt("offline_context_tokens", settings.contextTokenBudget)
+                    putInt("offline_max_output_tokens", settings.maxOutputTokens)
+                    putInt("offline_visual_token_budget", settings.visualTokenBudget ?: -1)
+                }
                 if (selectProvider) putString("active_provider", settings.provider.name)
             }
             .apply()
